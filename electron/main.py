@@ -286,7 +286,7 @@ BUILD_SCRIPT_SIMPLE = r'''<#
 $ErrorActionPreference = "Stop"
 Write-Host "PE Builder Build Script v1.0" -ForegroundColor Cyan
 Write-Host "本脚本需要 Windows ADK (部署工具 + Windows PE) 才能运行。"
-Write-Host "下载地址: https://go.microsoft.com/fwlink/?linkid=2240443"
+Write-Host "下载地址: https://go.microsoft.com/fwlink/?linkid=2289980"
 Write-Host ""
 Write-Host "请先确认已安装 ADK，然后以管理员身份运行此脚本。"
 Write-Host "配置后重新生成脚本即可使用。"
@@ -308,8 +308,8 @@ class Api:
     
     # ---- ADK Download & Install ----
     
-    ADK_URL = 'https://go.microsoft.com/fwlink/?linkid=2240443'
-    ADK_WINPE_URL = 'https://go.microsoft.com/fwlink/?linkid=2240673'
+    ADK_URL = 'https://go.microsoft.com/fwlink/?linkid=2289980'
+    ADK_WINPE_URL = 'https://go.microsoft.com/fwlink/?linkid=2289980'
     # Chinese mirror alternative
     ADK_MIRROR_URL = 'https://download.microsoft.com/download/9/6/9/969E1FDE-B3D2-4D9E-93D4-1B8E5C35D7D7/adk/adksetup.exe'
     
@@ -363,7 +363,7 @@ class Api:
                     return
                 
                 if not download_success or not os.path.isfile(exe_path):
-                    self._set_adk_status('❌ 下载失败，请手动下载安装\nADK: https://go.microsoft.com/fwlink/?linkid=2240443', 0)
+                    self._set_adk_status('❌ 下载失败，请手动下载安装\nADK: https://go.microsoft.com/fwlink/?linkid=2289980', 0)
                     self._adk_downloading = False
                     return
                 
@@ -1040,7 +1040,7 @@ class Api:
                 self._append_log(f'  boot.wim: {size_mb:.0f}MB')
             
             # Copy bootmgr (for BIOS boot)
-            boot_files = iso_builder.find_windows_boot_files(arch)
+            boot_files = iso_builder.find_windows_boot_files(build_arch)
             if boot_files.get('bootmgr'):
                 shutil.copy2(boot_files['bootmgr'], os.path.join(media_dir, 'bootmgr'))
                 self._append_log('  ✓ bootmgr 已复制')

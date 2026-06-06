@@ -1960,7 +1960,7 @@ function generateScript() {
         appendBuildLog('  3. 确保源文件路径正确');
         appendBuildLog('');
         appendBuildLog('若无 ADK，可手动安装后运行脚本');
-        appendBuildLog('ADK 下载: https://go.microsoft.com/fwlink/?linkid=2240443');
+        appendBuildLog('ADK 下载: https://go.microsoft.com/fwlink/?linkid=2289980');
       } else {
         appendBuildLog('❌ 生成失败: ' + (result.error || '未知错误'));
       }
@@ -2221,7 +2221,7 @@ function startAdkDownload() {
     });
   } else {
     appendBuildLog('⚠ 浏览器模式：无法自动安装 ADK');
-    appendBuildLog('请手动下载安装: https://go.microsoft.com/fwlink/?linkid=2240443');
+    appendBuildLog('请手动下载安装: https://go.microsoft.com/fwlink/?linkid=2289980');
     document.getElementById('adkLogContent').textContent += '[ADK] 浏览器模式，请手动下载安装\n';
     resetAdkUI();
   }
