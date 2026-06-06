@@ -1,0 +1,15 @@
+{
+  "name": "pe-builder",
+  "version": "1.0.0",
+  "description": "Windows PE 定制工具",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-packager . PE-Builder --platform=win32 --arch=x64 --out=../dist --overwrite --icon=../icon.ico --asar --app-version=1.0.0",
+    "build-portable": "electron-packager . PE-Builder --platform=win32 --arch=x64 --out=../dist --overwrite --icon=../icon.ico --asar --app-version=1.0.0 -- portable"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-packager": "^17.1.2"
+  }
+}

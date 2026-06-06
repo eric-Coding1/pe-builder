@@ -136,3 +136,14 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# PE Builder specific
+exe-dist/
+build-tmp*/
+build-tmp-*/
+tools/*.zip
+tools/Dism++/
+build-scripts/
+adk-setup/
+*.zip
+node_modules/

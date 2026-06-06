@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PE Builder — Windows PE 定制工具</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-primary: #1a1d24;
+    --bg-secondary: #22262f;
+    --bg-card: #2a2f3a;
+    --bg-hover: #323844;
+    --bg-active: #3a4050;
+    --border: #3a4050;
+    --text-primary: #e8eaed;
+    --text-secondary: #9aa0a8;
+    --text-muted: #6b7280;
+    --accent: #4a9eff;
+    --accent-hover: #3a8aee;
+    --accent-glow: rgba(74,158,255,.25);
+    --success: #34d399;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --info: #60a5fa;
+    --scrollbar: #3a4050;
+    --scrollbar-hover: #4a5260;
+    --shadow: 0 4px 24px rgba(0,0,0,.3);
+    --radius: 8px;
+    --radius-sm: 6px;
+    --sidebar-w: 240px;
+    --topbar-h: 56px;
+    --statusbar-h: 36px;
+  }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    display: flex; flex-direction: column;
+    user-select: none;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+
+  /* ===== TOPBAR ===== */
+  .topbar {
+    height: var(--topbar-h);
+    display: flex; align-items: center;
+    padding: 0 20px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 14px;
+  }
+  .topbar .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 18px; font-weight: 700;
+    color: var(--accent);
+  }
+  .topbar .logo i { font-size: 22px; }
+  .topbar .logo span { color: var(--text-primary); }
+  .topbar .project-badge {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .topbar .project-badge i { margin-right: 6px; color: var(--accent); }
+  .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+  .topbar-actions button {
+    background: none; border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all .2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .topbar-actions button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+  }
+  .topbar-actions .btn-build {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  .topbar-actions .btn-build:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+
+  /* ===== LAYOUT ===== */
+  .app-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 12px 0;
+  }
+  .nav-section-title {
+    padding: 8px 20px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: .5px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 14px;
+    transition: all .15s;
+    border-left: 3px solid transparent;
+    position: relative;
+  }
+  .nav-item i { width: 18px; text-align: center; font-size: 15px; }
+  .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .nav-item.active {
+    background: var(--bg-active);
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+  .nav-item .badge {
+    margin-left: auto;
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+  }
+  .nav-item.active .badge { background: var(--accent-glow); color: var(--accent); }
+  .nav-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 8px 20px;
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .main-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 32px;
+    display: flex; flex-direction: column;
+    gap: 20px;
+  }
+  .panel { display: none; }
+  .panel.active { display: flex; flex-direction: column; gap: 20px; }
+
+  /* ===== STATUS BAR ===== */
+  .statusbar {
+    height: var(--statusbar-h);
+    display: flex; align-items: center;
+    padding: 0 20px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    gap: 20px;
+  }
+  .statusbar .spacer { flex: 1; }
+  .statusbar .item { display: flex; align-items: center; gap: 5px; }
+  .statusbar .item i { font-size: 11px; }
+
+  /* ===== CARDS ===== */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title i { color: var(--accent); }
+  .card-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  /* ===== FORM ===== */
+  .form-group {
+    display: flex; flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .form-label .required { color: var(--danger); }
+  .form-control {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    transition: border .2s;
+  }
+  .form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .form-control::placeholder { color: var(--text-muted); }
+  select.form-control { cursor: pointer; }
+  select.form-control option { background: var(--bg-primary); }
+  .form-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-row-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all .2s;
+  }
+  .btn:hover { background: var(--bg-active); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-success { background: var(--success); border-color: var(--success); color: #000; }
+  .btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #000; }
+  .btn-ghost { background: transparent; border: none; color: var(--text-secondary); }
+  .btn-ghost:hover { color: var(--text-primary); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-lg { padding: 10px 28px; font-size: 15px; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ===== COMPONENTS - TOGGLE ===== */
+  .toggle-wrap {
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+    padding: 6px 0;
+  }
+  .toggle {
+    width: 40px; height: 22px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    position: relative;
+    transition: all .2s;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--text-primary);
+    top: 2px; left: 2px;
+    transition: transform .2s;
+  }
+  .toggle.on::after { background: #fff; transform: translateX(18px); }
+  .toggle-label { font-size: 13px; color: var(--text-secondary); }
+
+  /* ===== COMPONENTS - CHECKBOX ===== */
+  .check-wrap {
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+    padding: 4px 0;
+  }
+  .check-wrap input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all .15s;
+    position: relative;
+  }
+  .check-wrap input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .check-wrap input[type="checkbox"]:checked::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    position: absolute;
+    font-size: 11px;
+    color: #fff;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+  }
+  .check-label { font-size: 13px; }
+
+  /* ===== TOOL LIST ===== */
+  .tool-list {
+    display: flex; flex-direction: column;
+    gap: 2px;
+  }
+  .tool-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .tool-item:hover { border-color: var(--text-muted); }
+  .tool-item .icon {
+    width: 36px; height: 36px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .tool-item .info { flex: 1; }
+  .tool-item .info .name { font-size: 13px; font-weight: 500; }
+  .tool-item .info .desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .tool-item .actions { display: flex; gap: 4px; }
+
+  /* ===== DRAG ZONE ===== */
+  .drag-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px 20px;
+    text-align: center;
+    transition: all .2s;
+    cursor: pointer;
+  }
+  .drag-zone:hover, .drag-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+  .drag-zone i { font-size: 36px; color: var(--text-muted); margin-bottom: 12px; }
+  .drag-zone p { color: var(--text-secondary); font-size: 14px; }
+  .drag-zone .hint { color: var(--text-muted); font-size: 12px; margin-top: 6px; }
+
+  /* ===== COMPONENT GRID ===== */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+  }
+  .comp-item {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .comp-item:hover { border-color: var(--text-muted); }
+  .comp-item.selected { border-color: var(--accent); background: var(--accent-glow); }
+  .comp-item .comp-icon { width: 28px; text-align: center; color: var(--info); font-size: 14px; }
+  .comp-item .comp-info { flex: 1; }
+  .comp-item .comp-info .name { font-size: 13px; }
+  .comp-item .comp-info .size { font-size: 11px; color: var(--text-muted); }
+
+  /* ===== REGISTRY ITEMS ===== */
+  .reg-list { display: flex; flex-direction: column; gap: 2px; }
+  .reg-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .reg-item:hover { border-color: var(--text-muted); }
+  .reg-item .info { flex: 1; }
+  .reg-item .info .name { font-size: 13px; }
+  .reg-item .info .desc { font-size: 11px; color: var(--text-muted); }
+
+  /* ===== BUILD PANEL ===== */
+  .build-steps { display: flex; flex-direction: column; gap: 4px; }
+  .build-step {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+  }
+  .build-step.done { border-color: var(--success); }
+  .build-step.done i { color: var(--success); }
+  .build-step.active { border-color: var(--accent); }
+  .build-step.active i { color: var(--accent); animation: pulse 1s infinite; }
+  .build-step.pending i { color: var(--text-muted); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+  }
+  .build-step .step-icon { width: 20px; text-align: center; }
+  .build-step .step-name { flex: 1; }
+  .build-step .step-time { font-size: 11px; color: var(--text-muted); }
+  .build-step .step-status { font-size: 11px; font-weight: 500; }
+
+  .progress-wrap {
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    height: 8px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #7c3aed);
+    border-radius: var(--radius-sm);
+    transition: width .5s ease;
+    width: 0%;
+  }
+
+  /* ===== SUMMARY ===== */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .summary-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    text-align: center;
+  }
+  .summary-card .val {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .summary-card .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* ===== WALLPAPER PREVIEW ===== */
+  .wallpaper-preview {
+    width: 100%;
+    height: 160px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #01579b 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,.3);
+    font-size: 14px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all .2s;
+    overflow: hidden;
+    position: relative;
+  }
+  .wallpaper-preview:hover { border-color: var(--accent); }
+  .wallpaper-preview img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  .wallpaper-preview .overlay {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,.7));
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #fff;
+  }
+  .color-picker-row {
+    display: flex; gap: 12px; align-items: center;
+  }
+  .color-swatch {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .color-swatch:hover, .color-swatch.active { border-color: var(--accent); transform: scale(1.1); }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main-content { padding: 16px; }
+    .form-row, .form-row-3, .form-row-4 { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 480px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h3 { font-size: 16px; }
+  .modal-close {
+    background: none; border: none;
+    color: var(--text-secondary); font-size: 18px;
+    cursor: pointer;
+  }
+  .modal-close:hover { color: var(--text-primary); }
+  .modal-body { padding: 20px; }
+  .modal-footer {
+    display: flex; gap: 8px; justify-content: flex-end;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ===== TOAST ===== */
+  .toast-container {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: var(--shadow);
+    animation: slideIn .3s ease;
+    min-width: 260px;
+  }
+  .toast.info { border-left: 3px solid var(--accent); }
+  .toast.success { border-left: 3px solid var(--success); }
+  .toast.warning { border-left: 3px solid var(--warning); }
+  .toast.error { border-left: 3px solid var(--danger); }
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* ===== DRIVER TABLE ===== */
+  .driver-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .driver-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .driver-table td {
+    padding: 8px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .driver-table tr:last-child td { border-bottom: none; }
+  .driver-table tr:hover td { background: var(--bg-hover); }
+</style>
+</head>
+<body>
+
+  <!-- ===== TOPBAR ===== -->
+  <header class="topbar">
+    <div class="logo">
+      <i class="fas fa-toolbox"></i>
+      <span>PE</span> Builder
+    </div>
+    <div class="project-badge">
+      <i class="fas fa-folder-open"></i>
+      <span id="projectNameDisplay">未命名项目</span>
+    </div>
+    <div class="topbar-actions">
+      <button onclick="newProject()" title="新建项目"><i class="fas fa-plus"></i> 新建</button>
+      <button onclick="saveProject()" title="保存项目"><i class="fas fa-save"></i> 保存</button>
+      <button onclick="openProject()" title="打开项目"><i class="fas fa-folder-open"></i> 打开</button>
+      <button class="btn-build" onclick="switchPanel('build')"><i class="fas fa-hammer"></i> 构建 ISO</button>
+    </div>
+  </header>
+
+  <!-- ===== APP BODY ===== -->
+  <div class="app-body">
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+      <div class="nav-section-title">项目配置</div>
+      <div class="nav-item active" data-panel="project" onclick="switchPanel('project')">
+        <i class="fas fa-sliders-h"></i> 项目设置
+      </div>
+      <div class="nav-item" data-panel="source" onclick="switchPanel('source')">
+        <i class="fas fa-compact-disc"></i> 源文件
+        <span class="badge" id="sourceBadge">未设置</span>
+      </div>
+      <div class="nav-item" data-panel="components" onclick="switchPanel('components')">
+        <i class="fas fa-puzzle-piece"></i> 组件管理
+        <span class="badge" id="compBadge">0</span>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-section-title">个性化</div>
+      <div class="nav-item" data-panel="tools" onclick="switchPanel('tools')">
+        <i class="fas fa-cubes"></i> 工具管理
+        <span class="badge" id="toolBadge">0</span>
+      </div>
+      <div class="nav-item" data-panel="desktop" onclick="switchPanel('desktop')">
+        <i class="fas fa-desktop"></i> 桌面定制
+      </div>
+      <div class="nav-item" data-panel="drivers" onclick="switchPanel('drivers')">
+        <i class="fas fa-microchip"></i> 驱动注入
+        <span class="badge" id="driverBadge">0</span>
+      </div>
+      <div class="nav-item" data-panel="registry" onclick="switchPanel('registry')">
+        <i class="fas fa-registered"></i> 注册表优化
+        <span class="badge" id="regBadge">0</span>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-section-title">输出</div>
+      <div class="nav-item" data-panel="build" onclick="switchPanel('build')">
+        <i class="fas fa-hammer"></i> 构建 ISO
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+
+      <!-- ===== PANEL: 项目设置 ===== -->
+      <div class="panel active" id="panel-project">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-sliders-h"></i> 基本设置</div>
+          <div class="form-group">
+            <label class="form-label">项目名称</label>
+            <input class="form-control" id="projName" placeholder="我的 PE 项目" value="我的定制PE" oninput="updateProjectBadge()">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">目标架构</label>
+              <select class="form-control" id="projArch">
+                <option value="x64">x64 (AMD64)</option>
+                <option value="x86">x86 (32位)</option>
+                <option value="arm64">ARM64</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Windows 版本</label>
+              <select class="form-control" id="projWinVer">
+                <option value="win11">Windows 11 24H2</option>
+                <option value="win11-23h2">Windows 11 23H2</option>
+                <option value="win10">Windows 10 22H2</option>
+                <option value="win10-ltsc" selected>Windows 10 LTSC 2021</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">PE 语言</label>
+              <select class="form-control" id="projLang">
+                <option value="zh-CN">简体中文 (zh-CN)</option>
+                <option value="zh-TW">繁体中文 (zh-TW)</option>
+                <option value="en-US">English (US)</option>
+                <option value="ja-JP">日本語 (ja-JP)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">输出格式</label>
+              <select class="form-control" id="projOutFormat">
+                <option value="iso">ISO 镜像</option>
+                <option value="wim">WIM 文件</option>
+                <option value="usb">直接写入 U 盘</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fas fa-cog"></i> PE 高级选项</div>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label class="form-label">WIM 压缩</label>
+              <select class="form-control" id="projCompress">
+                <option value="max">最大压缩 (LZX)</option>
+                <option value="fast">快速压缩 (Xpress)</option>
+                <option value="none">不压缩</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">临时目录</label>
+              <input class="form-control" id="projTemp" value="X:\Temp">
+            </div>
+            <div class="form-group">
+              <label class="form-label">页面文件大小 (MB)</label>
+              <input class="form-control" id="projPagefile" type="number" value="1024">
+            </div>
+          </div>
+          <div class="form-row-3">
+            <div class="check-wrap" onclick="toggleNetwork(this)">
+              <input type="checkbox" checked id="chkNetwork"><span class="check-label">启用网络支持</span>
+            </div>
+            <div class="check-wrap" onclick="toggleCheck(this)">
+              <input type="checkbox"><span class="check-label">启用 .NET Framework</span>
+            </div>
+            <div class="check-wrap" onclick="toggleCheck(this)">
+              <input type="checkbox" checked><span class="check-label">启用 MTP 支持</span>
+            </div>
+            <div class="check-wrap" onclick="toggleCheck(this)">
+              <input type="checkbox"><span class="check-label">启用 BitLocker</span>
+            </div>
+            <div class="check-wrap" onclick="toggleCheck(this)">
+              <input type="checkbox"><span class="check-label">启用远程桌面</span>
+            </div>
+            <div class="check-wrap" onclick="toggleCheck(this)">
+              <input type="checkbox" checked><span class="check-label">启用 DISM 支持</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PANEL: 源文件 ===== -->
+      <div class="panel" id="panel-source">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-compact-disc"></i> 选择 PE 源</div>
+          <div class="card-subtitle">PE Builder 会自动检测系统内置的 WinRE，也可手动指定 ISO/WIM</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+            <button class="btn btn-sm" id="btnUseWinre" onclick="useWinreSource()" style="background:var(--info);border-color:var(--info);color:#000">
+              <i class="fas fa-laptop"></i> 使用系统 WinRE (免源文件)
+            </button>
+            <button class="btn btn-sm" onclick="simulateSelectSource()">
+              <i class="fas fa-folder-open"></i> 手动选择 ISO/WIM
+            </button>
+          </div>
+          <div class="drag-zone" id="sourceDropZone" onclick="simulateSelectSource()">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <p>点击选择或拖放 Windows ISO / WIM 文件到此处</p>
+            <div class="hint">支持 .iso、.wim 格式 | 也可使用系统 WinRE（自动检测）</div>
+          </div>
+          <div class="form-group" style="margin-top:16px">
+            <label class="form-label">当前源文件</label>
+            <div style="display:flex;gap:8px">
+              <input class="form-control" id="sourcePath" readonly value="" placeholder="尚未选择源文件" style="flex:1">
+              <button class="btn" onclick="simulateSelectSource()"><i class="fas fa-folder-open"></i> 浏览</button>
+              <button class="btn btn-danger" onclick="clearSource()"><i class="fas fa-times"></i></button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="fas fa-info-circle"></i> 源文件信息</div>
+          <div id="sourceInfo">
+            <div style="color:var(--text-muted);text-align:center;padding:20px">
+              <i class="fas fa-database" style="font-size:32px;display:block;margin-bottom:8px"></i>
+              点击「检测构建环境」自动查找系统 WinRE<br>
+              或手动选择 ISO/WIM 文件
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PANEL: 组件管理 ===== -->
+      <div class="panel" id="panel-components">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-puzzle-piece"></i> Windows 组件选择</div>
+          <div class="card-subtitle">选择要包含在 PE 中的 Windows 功能和组件</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <button class="btn btn-sm" onclick="selectAllComps(true)"><i class="fas fa-check-double"></i> 全选</button>
+            <button class="btn btn-sm" onclick="selectAllComps(false)"><i class="fas fa-undo"></i> 取消全选</button>
+            <button class="btn btn-sm" onclick="selectRecommendedComps()"><i class="fas fa-star"></i> 推荐选择</button>
+            <span style="margin-left:auto;font-size:12px;color:var(--text-muted);display:flex;align-items:center">
+              已选 <span id="compCount">0</span> 项
+            </span>
+          </div>
+          <div class="comp-grid" id="compGrid"></div>
+        </div>
+      </div>
+
+      <!-- ===== PANEL: 工具管理 ===== -->
+      <div class="panel" id="panel-tools">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-cubes"></i> 集成工具</div>
+          <div class="card-subtitle">添加第三方便携工具到 PE 中</div>
+          <div class="drag-zone" style="padding:20px;margin-bottom:16px" onclick="addTool()">
+            <i class="fas fa-plus-circle" style="font-size:24px"></i>
+            <p>点击添加便携工具 (.exe / 绿色版文件夹)</p>
+          </div>
+          <div class="tool-list" id="toolList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="fas fa-tags"></i> 常用工具推荐</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button class="btn btn-sm" onclick="addBuiltinTool('DiskGenius','磁盘分区管理','#f44336')"><i class="fas fa-hdd"></i> DiskGenius</button>
+            <button class="btn btn-sm" onclick="addBuiltinTool('7-Zip','文件压缩/解压','#1e88e5')"><i class="fas fa-file-archive"></i> 7-Zip</button>
+            <button class="btn btn-sm" onclick="addBuiltinTool('Ghost','系统备份还原','#e91e63')"><i class="fas fa-clone"></i> Ghost</button>
+            <button class="btn btn-sm" onclick="addBuiltinTool('Dism++','系统优化工具','#009688')"><i class="fas fa-tools"></i> Dism++</button>
+            <button class="btn btn-sm" onclick="addBuiltinTool('Notepad++','文本编辑器','#4caf50')"><i class="fas fa-file-alt"></i> Notepad++</button>
+            <button class="btn btn-sm" onclick="addBuiltinTool('AIDA64','硬件检测','#ff9800')"><i class="fas fa-microchip"></i> AIDA64</button>
+            <button class="btn btn-sm" onclick="addBuiltinTool('CPU-Z','CPU检测','#2196f3')"><i class="fas fa-cog"></i> CPU-Z</button>
+            <button class="btn btn-sm" onclick="addBuiltinTool('WinNTSetup','Windows安装器','#9c27b0')"><i class="fas fa-windows"></i> WinNTSetup</button>
+            <button class="btn btn-sm" onclick="addBuiltinTool('Everything','文件搜索','#795548')"><i class="fas fa-search"></i> Everything</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PANEL: 桌面定制 ===== -->
+      <div class="panel" id="panel-desktop">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-image"></i> 桌面壁纸</div>
+          <div class="wallpaper-preview" id="wallpaperPreview" onclick="changeWallpaper()">
+            <div class="text">点击更换壁纸</div>
+          </div>
+          <div class="form-group" style="margin-top:12px">
+            <label class="form-label">壁纸文件</label>
+            <div style="display:flex;gap:8px">
+              <input class="form-control" id="wallpaperPath" readonly value="" placeholder="使用默认 PE 壁纸" style="flex:1">
+              <button class="btn" onclick="changeWallpaper()"><i class="fas fa-folder-open"></i> 浏览</button>
+              <button class="btn btn-danger" onclick="clearWallpaper()"><i class="fas fa-undo"></i> 重置</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="fas fa-palette"></i> 主题颜色</div>
+          <label class="form-label">强调色 / 主题色</label>
+          <div class="color-picker-row" style="margin-top:8px">
+            <div class="color-swatch active" style="background:#4a9eff" onclick="selectThemeColor(this,'#4a9eff')"></div>
+            <div class="color-swatch" style="background:#34d399" onclick="selectThemeColor(this,'#34d399')"></div>
+            <div class="color-swatch" style="background:#f87171" onclick="selectThemeColor(this,'#f87171')"></div>
+            <div class="color-swatch" style="background:#fbbf24" onclick="selectThemeColor(this,'#fbbf24')"></div>
+            <div class="color-swatch" style="background:#a78bfa" onclick="selectThemeColor(this,'#a78bfa')"></div>
+            <div class="color-swatch" style="background:#f472b6" onclick="selectThemeColor(this,'#f472b6')"></div>
+            <div class="color-swatch" style="background:#fb923c" onclick="selectThemeColor(this,'#fb923c')"></div>
+            <div class="color-swatch" style="background:#38bdf8" onclick="selectThemeColor(this,'#38bdf8')"></div>
+          </div>
+          <input type="color" id="themeColorPicker" style="display:none" onchange="pickCustomColor(this)">
+          <button class="btn btn-sm" style="margin-top:8px" onclick="document.getElementById('themeColorPicker').click()">
+            <i class="fas fa-eyedropper"></i> 自定义颜色
+          </button>
+        </div>
+        <div class="form-row-3">
+          <div class="card">
+            <div class="card-title" style="margin-bottom:0"><i class="fas fa-th"></i> 桌面图标</div>
+            <div style="margin-top:12px">
+              <div class="check-wrap" onclick="toggleCheck(this)"><input type="checkbox" checked><span class="check-label">显示此电脑</span></div>
+              <div class="check-wrap" onclick="toggleCheck(this)"><input type="checkbox" checked><span class="check-label">显示回收站</span></div>
+              <div class="check-wrap" onclick="toggleCheck(this)"><input type="checkbox"><span class="check-label">显示我的文档</span></div>
+              <div class="check-wrap" onclick="toggleCheck(this)"><input type="checkbox" checked><span class="check-label">显示网络</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:0"><i class="fas fa-tasks"></i> 任务栏设置</div>
+            <div style="margin-top:12px">
+              <div class="check-wrap" onclick="toggleCheck(this)"><input type="checkbox" checked><span class="check-label">显示任务栏</span></div>
+              <div class="check-wrap" onclick="toggleCheck(this)"><input type="checkbox"><span class="check-label">自动隐藏任务栏</span></div>
+              <div class="check-wrap" onclick="toggleCheck(this)"><input type="checkbox" checked><span class="check-label">显示快速启动</span></div>
+              <div class="check-wrap" onclick="toggleCheck(this)"><input type="checkbox" checked><span class="check-label">显示时钟</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:0"><i class="fas fa-font"></i> 字体设置</div>
+            <div style="margin-top:12px">
+              <div class="form-group">
+                <label class="form-label">系统字体</label>
+                <select class="form-control" id="systemFont">
+                  <option value="microsoft-yahei">微软雅黑</option>
+                  <option value="simsun">宋体</option>
+                  <option value="simhei">黑体</option>
+                  <option value="noto-sc">思源黑体</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">字体大小</label>
+                <select class="form-control" id="systemFontSize">
+                  <option value="9">9pt</option>
+                  <option value="10" selected>10pt</option>
+                  <option value="11">11pt</option>
+                  <option value="12">12pt</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PANEL: 驱动注入 ===== -->
+      <div class="panel" id="panel-drivers">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-microchip"></i> 驱动管理</div>
+          <div class="card-subtitle">向 PE 中注入驱动程序。勾选「启用网络支持」时自动添加网卡驱动</div>
+          <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+            <button class="btn btn-sm" onclick="addDriver()"><i class="fas fa-plus"></i> 添加驱动</button>
+            <button class="btn btn-sm" onclick="addDriverPreset('vmd')"><i class="fas fa-hdd"></i> Intel VMD</button>
+            <button class="btn btn-sm" onclick="addDriverPreset('nvme')"><i class="fas fa-bolt"></i> NVMe</button>
+            <button class="btn btn-sm" onclick="addDriverPreset('realtek_net')"><i class="fas fa-network-wired"></i> Realtek 网卡</button>
+            <button class="btn btn-sm" onclick="addDriverPreset('intel_net')"><i class="fas fa-network-wired"></i> Intel 网卡</button>
+            <button class="btn btn-sm" onclick="addDriverPreset('broadcom_net')"><i class="fas fa-network-wired"></i> Broadcom 网卡</button>
+            <button class="btn btn-sm" onclick="addDriverPreset('wifi')"><i class="fas fa-wifi"></i> WiFi 驱动包</button>
+            <button class="btn btn-sm" onclick="addDriverPreset('usb3')"><i class="fas fa-plug"></i> USB 3.x</button>
+            <button class="btn btn-sm" onclick="addDriverPreset('sata')"><i class="fas fa-hdd"></i> SATA/RAID</button>
+            <button class="btn btn-sm" onclick="extractSystemDrivers()" style="background:var(--info);border-color:var(--info);color:#000">
+              <i class="fas fa-laptop"></i> 从本机提取驱动
+            </button>
+          </div>
+          <table class="driver-table" id="driverTable">
+            <thead>
+              <tr><th>驱动名称</th><th>类型</th><th>平台</th><th>大小</th><th>操作</th></tr>
+            </thead>
+            <tbody id="driverBody">
+            </tbody>
+          </table>
+          <div id="driverEmpty" style="text-align:center;padding:30px;color:var(--text-muted)">
+            <i class="fas fa-microchip" style="font-size:28px;display:block;margin-bottom:8px"></i>
+            尚未添加任何驱动 — 建议添加 NVMe、网卡驱动或从本机提取
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PANEL: 注册表优化 ===== -->
+      <div class="panel" id="panel-registry">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-registered"></i> 注册表优化预设</div>
+          <div class="card-subtitle">选择要应用到 PE 的注册表优化项</div>
+          <div class="form-group">
+            <label class="form-label">快速筛选</label>
+            <input class="form-control" id="regSearch" placeholder="搜索优化项..." oninput="filterRegItems(this.value)">
+          </div>
+          <div class="reg-list" id="regList"></div>
+        </div>
+      </div>
+
+      <!-- ===== PANEL: 构建 ISO ===== -->
+      <div class="panel" id="panel-build">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-hammer"></i> 构建 PE 镜像</div>
+          <div class="summary-grid" id="buildSummary">
+            <div class="summary-card">
+              <div class="val" id="buildSummaryArch">x64</div>
+              <div class="label">目标架构</div>
+            </div>
+            <div class="summary-card">
+              <div class="val" id="buildSummaryTools">0</div>
+              <div class="label">集成工具</div>
+            </div>
+            <div class="summary-card">
+              <div class="val" id="buildSummaryDrivers">0</div>
+              <div class="label">注入驱动</div>
+            </div>
+            <div class="summary-card">
+              <div class="val" id="buildSummaryRegs">0</div>
+              <div class="label">注册表优化</div>
+            </div>
+            <div class="summary-card">
+              <div class="val" id="buildSummaryComps">0</div>
+              <div class="label">已选组件</div>
+            </div>
+            <div class="summary-card">
+              <div class="val" id="buildSummarySize">-</div>
+              <div class="label">预估镜像大小</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fas fa-microchip"></i> 环境检测</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button class="btn" id="btnCheckEnv" onclick="checkEnvironment()">
+              <i class="fas fa-search"></i> 检测构建环境
+            </button>
+            <span id="envStatus" style="font-size:13px;color:var(--text-muted)">未检测</span>
+          </div>
+          <div id="envDetail" style="margin-top:12px;display:none">
+            <div class="form-row-4" style="gap:8px">
+              <div class="summary-card" style="padding:10px">
+                <div style="font-size:14px;font-weight:700" id="envAdk">-</div>
+                <div style="font-size:11px">Windows ADK</div>
+              </div>
+              <div class="summary-card" style="padding:10px">
+                <div style="font-size:14px;font-weight:700" id="envDism">-</div>
+                <div style="font-size:11px">DISM 可用</div>
+              </div>
+              <div class="summary-card" style="padding:10px">
+                <div style="font-size:14px;font-weight:700" id="envAdmin">-</div>
+                <div style="font-size:11px">管理员权限</div>
+              </div>
+              <div class="summary-card" style="padding:10px">
+                <div style="font-size:14px;font-weight:700" id="envOscdimg">-</div>
+                <div style="font-size:11px">oscdimg 可用</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="adkInstallCard" style="display:none">
+          <div class="card-title"><i class="fas fa-download"></i> ADK 自动安装</div>
+          <div class="progress-wrap">
+            <div class="progress-bar" id="adkProgressBar" style="width:0%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:8px">
+            <span id="adkProgressText">准备中...</span>
+            <span id="adkProgressPct">0%</span>
+          </div>
+          <div id="adkLogContainer" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;height:100px;overflow-y:auto;font-family:monospace;font-size:11px;line-height:1.5;color:var(--text-secondary)">
+            <div id="adkLogContent">准备部署 ADK...</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn btn-sm btn-danger" id="btnCancelAdk" onclick="cancelAdkDownload()">
+              <i class="fas fa-times"></i> 取消
+            </button>
+            <span style="font-size:11px;color:var(--text-muted);display:flex;align-items:center">
+              ADK 安装包约 600MB，下载需要一定时间
+            </span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fas fa-sliders-h"></i> 构建选项</div>
+          <div class="form-row" style="margin-top:12px">
+            <div class="form-group">
+              <label class="form-label">输出路径</label>
+              <div style="display:flex;gap:8px">
+                <input class="form-control" id="buildOutputPath" value="C:\PEBuilder\Output" style="flex:1">
+                <button class="btn"><i class="fas fa-folder-open"></i></button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ISO 文件名</label>
+              <input class="form-control" id="buildIsoName" value="MyPE.iso">
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-lg" id="btnStartBuild" onclick="runBuild()">
+              <i class="fas fa-play"></i> 开始构建
+            </button>
+            <button class="btn btn-lg" id="btnInstallAdk" onclick="startAdkDownload()">
+              <i class="fas fa-download"></i> 自动安装 ADK
+            </button>
+            <button class="btn btn-lg" onclick="generateScript()">
+              <i class="fas fa-file-code"></i> 生成构建脚本
+            </button>
+            <button class="btn btn-lg" onclick="switchPanel('project')">
+              <i class="fas fa-arrow-left"></i> 返回配置
+            </button>
+          </div>
+        </div>
+
+        <div class="card" id="buildProgressCard" style="display:none">
+          <div class="card-title">
+            <i class="fas fa-terminal" id="buildIcon"></i>
+            <span id="buildTitle">构建日志</span>
+            <button class="btn btn-sm btn-ghost" onclick="clearBuildLog()" style="margin-left:auto">
+              <i class="fas fa-trash"></i> 清空
+            </button>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar" id="buildProgressBar"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:8px">
+            <span id="buildProgressText">准备中...</span>
+            <span id="buildProgressPct">0%</span>
+          </div>
+          <div id="buildLogContainer" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;height:280px;overflow-y:auto;font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:12px;line-height:1.6">
+            <div id="buildLogContent" style="color:var(--text-muted)">点击「开始构建」或「检测环境」查看输出...</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ===== STATUS BAR ===== -->
+  <footer class="statusbar">
+    <span class="item"><i class="fas fa-tag"></i> v1.0.0</span>
+    <span class="item"><i class="fas fa-code-branch"></i> <span id="statusArch">x64</span></span>
+    <span class="item"><i class="fas fa-check-circle" style="color:var(--success)"></i> 就绪</span>
+    <span class="spacer"></span>
+    <span class="item" id="statusTime">--:--:--</span>
+  </footer>
+
+  <!-- ===== MODAL ===== -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">标题</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST CONTAINER ===== -->
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ========================================================================
+// DATA
+// ========================================================================
+
+const DEFAULT_THEME_COLOR = '#4a9eff';
+
+const COMPONENTS = [
+  { id:'explorer', name:'文件资源管理器', icon:'fa-folder-open', desc:'浏览和管理文件', selected:true },
+  { id:'cmd', name:'命令提示符', icon:'fa-terminal', desc:'命令行工具', selected:true },
+  { id:'powershell', name:'PowerShell', icon:'fa-terminal', desc:'高级命令行', selected:false },
+  { id:'notepad', name:'记事本', icon:'fa-file-alt', desc:'文本编辑器', selected:true },
+  { id:'taskmgr', name:'任务管理器', icon:'fa-tasks', desc:'进程和性能监控', selected:true },
+  { id:'regedit', name:'注册表编辑器', icon:'fa-registered', desc:'编辑注册表', selected:true },
+  { id:'calc', name:'计算器', icon:'fa-calculator', desc:'计算工具', selected:true },
+  { id:'paint', name:'画图', icon:'fa-paint-brush', desc:'简单图像编辑', selected:false },
+  { id:'diskmgmt', name:'磁盘管理', icon:'fa-hdd', desc:'磁盘分区管理', selected:true },
+  { id:'devmgmt', name:'设备管理器', icon:'fa-microchip', desc:'查看和管理硬件', selected:true },
+  { id:'networks', name:'网络管理', icon:'fa-wifi', desc:'网络连接和配置', selected:false },
+  { id:'snipping', name:'截图工具', icon:'fa-camera', desc:'屏幕截图', selected:false },
+  { id:'msconfig', name:'系统配置', icon:'fa-cog', desc:'启动项和系统设置', selected:false },
+  { id:'dxdiag', name:'DirectX 诊断', icon:'fa-gamepad', desc:'图形和声音诊断', selected:false },
+  { id:'osk', name:'屏幕键盘', icon:'fa-keyboard', desc:'虚拟键盘', selected:false },
+  { id:'mstsc', name:'远程桌面', icon:'fa-desktop', desc:'远程桌面连接', selected:false },
+  { id:'chkdsk', name:'磁盘检查', icon:'fa-shield-alt', desc:'检查磁盘错误', selected:true },
+  { id:'bootrec', name:'启动修复', icon:'fa-wrench', desc:'修复引导记录', selected:true },
+];
+
+const REGISTRY_TWEAKS = [
+  { id:'hide_drive_empty', name:'隐藏空驱动器', desc:'隐藏没有介质的驱动器盘符', selected:true },
+  { id:'show_hidden', name:'显示隐藏文件', desc:'在资源管理器中显示隐藏文件和系统文件', selected:true },
+  { id:'file_ext', name:'显示文件扩展名', desc:'显示已知文件类型的扩展名', selected:true },
+  { id:'no_uac', name:'禁用 UAC', desc:'禁用用户账户控制，避免弹窗', selected:true },
+  { id:'no_defrag', name:'禁用磁盘碎片整理', desc:'PE 环境中不需要碎片整理', selected:true },
+  { id:'no_restore', name:'禁用系统还原', desc:'PE 中没有系统还原必要', selected:true },
+  { id:'no_sleep', name:'禁用睡眠', desc:'PE 中不应进入睡眠状态', selected:true },
+  { id:'skip_oobe', name:'跳过 OOBE', desc:'跳过首次使用体验向导', selected:true },
+  { id:'no_autorun', name:'禁用自动播放', desc:'禁用所有驱动器的自动播放', selected:true },
+  { id:'explorer_classic', name:'经典资源管理器', desc:'使用经典 Windows 资源管理器样式', selected:false },
+  { id:'taskbar_small', name:'小任务栏按钮', desc:'使用小尺寸任务栏按钮', selected:false },
+  { id:'no_recycle', name:'禁用回收站', desc:'PE 中回收站无意义，禁用之', selected:true },
+  { id:'fast_shutdown', name:'快速关机', desc:'跳过关机前的等待和提示', selected:true },
+  { id:'no_paging', name:'禁用页面文件', desc:'PE 运行在内存中无需页面文件', selected:false },
+  { id:'numlock_on', name:'开启 NumLock', desc:'启动时自动打开数字键区', selected:true },
+  { id:'theme_perf', name:'高性能主题', desc:'关闭动画和特效以提升响应速度', selected:true },
+];
+
+const BUILTIN_TOOLS = {
+  'DiskGenius': { icon:'fa-hdd', color:'#f44336' },
+  '7-Zip': { icon:'fa-file-archive', color:'#1e88e5' },
+  'Ghost': { icon:'fa-clone', color:'#e91e63' },
+  'Dism++': { icon:'fa-tools', color:'#009688' },
+  'Notepad++': { icon:'fa-file-alt', color:'#4caf50' },
+  'AIDA64': { icon:'fa-microchip', color:'#ff9800' },
+  'CPU-Z': { icon:'fa-cog', color:'#2196f3' },
+  'WinNTSetup': { icon:'fa-windows', color:'#9c27b0' },
+  'Everything': { icon:'fa-search', color:'#795548' },
+};
+
+const BUILD_STEPS = [
+  { id:'prepare', name:'准备文件环境', icon:'fa-folder-open' },
+  { id:'mount', name:'挂载 WIM 映像', icon:'fa-compact-disc' },
+  { id:'inject', name:'注入组件和文件', icon:'fa-puzzle-piece' },
+  { id:'tools', name:'集成工具', icon:'fa-cubes' },
+  { id:'drivers', name:'注入驱动程序', icon:'fa-microchip' },
+  { id:'registry', name:'应用注册表优化', icon:'fa-registered' },
+  { id:'desktop', name:'应用桌面设置', icon:'fa-desktop' },
+  { id:'compress', name:'压缩并卸载映像', icon:'fa-compress-alt' },
+  { id:'boot', name:'创建引导', icon:'fa-boot' },
+  { id:'iso', name:'生成 ISO 镜像', icon:'fa-compact-disc' },
+  { id:'verify', name:'验证映像完整性', icon:'fa-check-circle' },
+  { id:'done', name:'构建完成！', icon:'fa-flag-checkered' },
+];
+
+// ========================================================================
+// STATE
+// ========================================================================
+
+let state = {
+  project: {
+    name: '我的定制PE',
+    arch: 'x64',
+    winVer: 'win10-ltsc',
+    lang: 'zh-CN',
+    outFormat: 'iso',
+    compress: 'max',
+    tempDir: 'X:\\Temp',
+    pagefile: 1024,
+    options: {
+      network: true,
+      dotnet: false,
+      mtp: true,
+      bitlocker: false,
+      rdp: false,
+      dism: true,
+    },
+  },
+  source: { path: '', detected: null },
+  components: COMPONENTS.map(c => ({ ...c })),
+  tools: [
+    { name:'Dism++', desc:'系统优化与部署工具', path:'', icon:'fa-tools', color:'#009688', builtin:true },
+    { name:'PE-Browser', desc:'简易网页浏览器', path:'', icon:'fa-globe', color:'#4a9eff', builtin:true },
+  ],
+  desktop: {
+    wallpaper: '',
+    themeColor: DEFAULT_THEME_COLOR,
+    icons: { computer: true, recycle: true, documents: false, network: true },
+    taskbar: { show: true, autoHide: false, quickLaunch: true, clock: true },
+    font: 'microsoft-yahei',
+    fontSize: '10',
+  },
+  drivers: [],
+  registry: REGISTRY_TWEAKS.map(r => ({ ...r })),
+};
+
+let selectedThemeColor = DEFAULT_THEME_COLOR;
+
+// ========================================================================
+// INIT
+// ========================================================================
+
+function init() {
+  renderComponents();
+  renderRegItems();
+  updateBadges();
+  updateProjectBadge();
+  updateBuildSummary();
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
+// ========================================================================
+// PANEL SWITCH
+// ========================================================================
+
+function switchPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  document.querySelector(`.nav-item[data-panel="${id}"]`)?.classList.add('active');
+  if (id === 'build') updateBuildSummary();
+}
+
+// ========================================================================
+// BADGES
+// ========================================================================
+
+function updateBadges() {
+  const comps = state.components.filter(c => c.selected).length;
+  document.getElementById('compBadge').textContent = comps;
+  document.getElementById('compCount').textContent = comps;
+
+  const tools = state.tools.length;
+  document.getElementById('toolBadge').textContent = tools;
+
+  const drvs = state.drivers.length;
+  document.getElementById('driverBadge').textContent = drvs;
+
+  const regs = state.registry.filter(r => r.selected).length;
+  document.getElementById('regBadge').textContent = regs;
+
+  const src = state.source.path ? '已设置' : '未设置';
+  document.getElementById('sourceBadge').textContent = src;
+}
+
+function updateProjectBadge() {
+  const name = document.getElementById('projName').value || '未命名项目';
+  document.getElementById('projectNameDisplay').textContent = name;
+}
+
+// ========================================================================
+// COMPONENTS
+// ========================================================================
+
+function renderComponents() {
+  const grid = document.getElementById('compGrid');
+  grid.innerHTML = state.components.map(c => `
+    <div class="comp-item ${c.selected?'selected':''}" onclick="toggleComp('${c.id}')">
+      <div class="comp-icon"><i class="fas ${c.icon}"></i></div>
+      <div class="comp-info">
+        <div class="name">${c.name}</div>
+        <div class="size">${c.desc}</div>
+      </div>
+      <i class="fas fa-${c.selected?'check-circle':'circle'}" style="color:${c.selected?'var(--success)':'var(--text-muted)'};font-size:14px"></i>
+    </div>
+  `).join('');
+  updateBadges();
+}
+
+function toggleComp(id) {
+  const c = state.components.find(x => x.id === id);
+  if (c) { c.selected = !c.selected; renderComponents(); }
+}
+
+function selectAllComps(sel) {
+  state.components.forEach(c => c.selected = sel);
+  renderComponents();
+}
+
+function selectRecommendedComps() {
+  state.components.forEach(c => c.selected = c.id === 'explorer' || c.id === 'cmd' || c.id === 'notepad' ||
+    c.id === 'taskmgr' || c.id === 'regedit' || c.id === 'calc' || c.id === 'diskmgmt' ||
+    c.id === 'devmgmt' || c.id === 'chkdsk' || c.id === 'bootrec');
+  renderComponents();
+  toast('已应用推荐组件配置', 'info');
+}
+
+// ========================================================================
+// TOOLS
+// ========================================================================
+
+function renderTools() {
+  const list = document.getElementById('toolList');
+  if (state.tools.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)"><i class="fas fa-box-open" style="font-size:28px;display:block;margin-bottom:8px"></i>尚未添加任何工具</div>';
+    return;
+  }
+  list.innerHTML = state.tools.map((t, i) => `
+    <div class="tool-item">
+      <div class="icon" style="background:${t.color}22;color:${t.color}"><i class="fas ${t.icon}"></i></div>
+      <div class="info">
+        <div class="name">${t.name}${t.builtin ? ' <span style="font-size:10px;background:var(--accent-glow);color:var(--accent);padding:1px 6px;border-radius:8px">内置</span>' : ''}</div>
+        <div class="desc">${t.desc} · ${t.path || '已内置到 PE Builder'}</div>
+      </div>
+      <div class="actions">
+        ${t.builtin ? '<span style="font-size:11px;color:var(--text-muted)">默认工具</span>' : '<button class="btn btn-sm btn-ghost" onclick="removeTool('+i+')"><i class="fas fa-trash"></i></button>'}
+      </div>
+    </div>
+  `).join('');
+  updateBadges();
+}
+
+function addBuiltinTool(name, desc, color) {
+  if (state.tools.find(t => t.name === name)) {
+    toast(`"${name}" 已添加`, 'warning');
+    return;
+  }
+  const meta = BUILTIN_TOOLS[name] || { icon:'fa-cube', color };
+  state.tools.push({
+    name, desc: desc || '便携工具', path: '', icon: meta.icon, color: meta.color
+  });
+  renderTools();
+  toast(`已添加 "${name}"`, 'success');
+}
+
+function addTool() {
+  const name = prompt('输入工具名称：');
+  if (!name) return;
+  const desc = prompt('输入工具描述（可选）：') || '便携工具';
+  state.tools.push({ name, desc, path: '', icon: 'fa-cube', color: '#6b7280' });
+  renderTools();
+  toast(`已添加 "${name}"`, 'success');
+}
+
+function removeTool(idx) {
+  const t = state.tools[idx];
+  state.tools.splice(idx, 1);
+  renderTools();
+  toast(`已移除 "${t.name}"`, 'info');
+}
+
+// ========================================================================
+// SOURCE
+// ========================================================================
+
+function useWinreSource() {
+  appendBuildLog('正在检测系统 WinRE...');
+  const api = window.pywebview?.api || window.electronAPI;
+  if (api && api.check_prerequisites) {
+    api.check_prerequisites().then(function(result) {
+      if (typeof result === 'string') result = JSON.parse(result);
+      if (result.winre_found) {
+        state.source.path = result.winre_path;
+        state.source.from_winre = true;
+        document.getElementById('sourcePath').value = '系统 WinRE: ' + result.winre_path;
+        document.getElementById('sourceBadge').textContent = '系统 WinRE';
+        document.getElementById('sourceBadge').style.color = 'var(--success)';
+        document.getElementById('sourceInfo').innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div><div style="color:var(--text-muted);font-size:12px">源类型</div><div style="font-size:14px;color:var(--success)">✅ 系统 WinRE（免源文件）</div></div>
+            <div><div style="color:var(--text-muted);font-size:12px">路径</div><div style="font-size:13px">${result.winre_path}</div></div>
+            <div><div style="color:var(--text-muted);font-size:12px">DISM</div><div style="font-size:14px;color:var(--success)">✓ 可用</div></div>
+            <div><div style="color:var(--text-muted);font-size:12px">预计 ISO 大小</div><div style="font-size:14px">&lt; 1GB ✅</div></div>
+          </div>
+        `;
+        toast('✅ 已使用系统 WinRE 作为 PE 源', 'success');
+      } else {
+        toast('❌ 未找到系统 WinRE，请手动选择源文件', 'error');
+      }
+    }).catch(function(err) {
+      toast('检测失败，请手动选择源文件', 'error');
+    });
+  } else {
+    toast('浏览器模式，请手动选择源文件', 'warning');
+  }
+}
+
+function simulateSelectSource() {
+  const path = prompt('输入 Windows ISO 或 WIM 文件路径：\n(例如: D:\\Windows\\WIN10.iso 或 E:\\sources\\boot.wim)');
+  if (!path) return;
+  state.source.path = path;
+  document.getElementById('sourcePath').value = path;
+
+  const info = document.getElementById('sourceInfo');
+  const name = path.split('\\').pop() || path.split('/').pop() || path;
+  info.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><div style="color:var(--text-muted);font-size:12px">文件名</div><div style="font-size:14px">${name}</div></div>
+      <div><div style="color:var(--text-muted);font-size:12px">格式</div><div style="font-size:14px">${name.endsWith('.iso')?'ISO 镜像':name.endsWith('.wim')?'WIM 映像':'Windows PE 源'}</div></div>
+      <div><div style="color:var(--text-muted);font-size:12px">检测架构</div><div style="font-size:14px">${document.getElementById('projArch').value === 'arm64'?'ARM64':'x64'}</div></div>
+      <div><div style="color:var(--text-muted);font-size:12px">源版本</div><div style="font-size:14px">Windows 10/11 PE</div></div>
+    </div>
+  `;
+  updateBadges();
+  toast('源文件已设置', 'success');
+}
+
+function clearSource() {
+  state.source.path = '';
+  document.getElementById('sourcePath').value = '';
+  document.getElementById('sourceInfo').innerHTML = `
+    <div style="color:var(--text-muted);text-align:center;padding:20px">
+      <i class="fas fa-database" style="font-size:32px;display:block;margin-bottom:8px"></i>
+      选择源文件后此处显示详细信息
+    </div>
+  `;
+  updateBadges();
+}
+
+// ========================================================================
+// DRIVERS
+// ========================================================================
+
+function renderDrivers() {
+  const body = document.getElementById('driverBody');
+  const empty = document.getElementById('driverEmpty');
+  if (state.drivers.length === 0) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    updateBadges();
+    return;
+  }
+  empty.style.display = 'none';
+  body.innerHTML = state.drivers.map((d, i) => `
+    <tr>
+      <td>${d.name}</td>
+      <td>${d.type}</td>
+      <td>${d.platform}</td>
+      <td>${d.size}</td>
+      <td><button class="btn btn-sm btn-ghost" onclick="removeDriver(${i})"><i class="fas fa-trash"></i></button></td>
+    </tr>
+  `).join('');
+  updateBadges();
+}
+
+function addDriver() {
+  const name = prompt('输入驱动名称：');
+  if (!name) return;
+  state.drivers.push({ name, type: '自定义', platform: document.getElementById('projArch').value, size: '--' });
+  renderDrivers();
+  toast(`已添加驱动 "${name}"`, 'success');
+}
+
+function addDriverPreset(type) {
+  const known = name => state.drivers.find(d => d.name.includes(name));
+  const push = (name, type, platform, size) => {
+    if (known(name)) { toast(`"${name}" 已添加`, 'warning'); return; }
+    state.drivers.push({ name, type, platform, size });
+  };
+  
+  switch(type) {
+    case 'vmd':
+      push('Intel VMD (RST)','存储控制器','x64','~8MB');
+      break;
+    case 'nvme':
+      push('NVMe 存储驱动','存储控制器','x64','~5MB');
+      break;
+    case 'realtek_net':
+      push('Realtek PCIe 以太网','网络适配器','x64','~3MB');
+      push('Realtek USB 网卡','网络适配器','x64','~1MB');
+      break;
+    case 'intel_net':
+      push('Intel PRO/1000 以太网','网络适配器','x64','~2MB');
+      push('Intel I219/I210 网卡','网络适配器','x64','~2MB');
+      break;
+    case 'broadcom_net':
+      push('Broadcom NetXtreme','网络适配器','x64','~4MB');
+      break;
+    case 'wifi':
+      push('Intel WiFi 6 AX201/AX200','无线网卡','x64','~10MB');
+      push('Realtek WiFi 8821CE','无线网卡','x64','~5MB');
+      push('Broadcom BCM4360 无线','无线网卡','x64','~6MB');
+      break;
+    case 'usb3':
+      push('USB 3.x (xHCI) 控制器','USB 控制器','x64','~3MB');
+      push('Intel USB 3.0 可扩展主机','USB 控制器','x64','~2MB');
+      break;
+    case 'sata':
+      push('Intel SATA AHCI','存储控制器','x64','~2MB');
+      push('AMD SATA/RAID','存储控制器','x64','~3MB');
+      break;
+    case 'net':
+      push('集成网卡驱动包','网络适配器','x64','~120MB');
+      break;
+  }
+  renderDrivers();
+  toast('驱动预设已添加', 'success');
+}
+
+function removeDriver(idx) {
+  state.drivers.splice(idx, 1);
+  renderDrivers();
+}
+
+function extractSystemDrivers() {
+  appendBuildLog('正在从本机系统提取驱动程序...');
+  const api = window.pywebview?.api || window.electronAPI;
+  if (api && api.extract_system_drivers) {
+    api.extract_system_drivers().then(function(result) {
+      if (typeof result === 'string') result = JSON.parse(result);
+      if (result.success && result.drivers) {
+        result.drivers.forEach(function(d) {
+          if (!state.drivers.find(x => x.name === d.name)) {
+            state.drivers.push(d);
+          }
+        });
+        renderDrivers();
+        toast(`✅ 已提取 ${result.drivers.length} 个驱动`, 'success');
+        appendBuildLog(`✅ 从本机提取了 ${result.drivers.length} 个驱动`);
+      } else {
+        toast('提取驱动失败: ' + (result.error || '未知错误'), 'error');
+        appendBuildLog('❌ 驱动提取失败');
+      }
+    }).catch(function(err) {
+      toast('调用失败: ' + err, 'error');
+    });
+  } else {
+    toast('浏览器模式不支持提取驱动，请手动添加', 'warning');
+    appendBuildLog('⚠ 浏览器模式，无法从本机提取驱动');
+  }
+}
+
+// ========================================================================
+// REGISTRY
+// ========================================================================
+
+function renderRegItems(filter) {
+  const list = document.getElementById('regList');
+  const items = filter
+    ? state.registry.filter(r => r.name.includes(filter) || r.desc.includes(filter))
+    : state.registry;
+  list.innerHTML = items.map(r => `
+    <div class="reg-item" onclick="toggleReg('${r.id}')">
+      <i class="fas fa-${r.selected?'check-circle':'circle'}" style="color:${r.selected?'var(--success)':'var(--text-muted)'};font-size:16px"></i>
+      <div class="info">
+        <div class="name">${r.name}</div>
+        <div class="desc">${r.desc}</div>
+      </div>
+    </div>
+  `).join('');
+  updateBadges();
+}
+
+function toggleReg(id) {
+  const r = state.registry.find(x => x.id === id);
+  if (r) { r.selected = !r.selected; renderRegItems(document.getElementById('regSearch').value); }
+}
+
+function filterRegItems(val) {
+  renderRegItems(val);
+}
+
+// ========================================================================
+// DESKTOP
+// ========================================================================
+
+function changeWallpaper() {
+  const path = prompt('输入壁纸文件路径：\n(支持 .jpg .png .bmp)');
+  if (!path) return;
+  state.desktop.wallpaper = path;
+  document.getElementById('wallpaperPath').value = path;
+
+  const preview = document.getElementById('wallpaperPreview');
+  const name = path.split('\\').pop() || path.split('/').pop() || path;
+  preview.innerHTML = `
+    <div style="color:rgba(255,255,255,.7);font-size:14px;text-align:center">
+      <i class="fas fa-check-circle" style="font-size:24px;display:block;margin-bottom:6px;color:var(--success)"></i>
+      壁纸已选择
+    </div>
+    <div class="overlay">${name}</div>
+  `;
+  toast('壁纸已更换', 'success');
+}
+
+function clearWallpaper() {
+  state.desktop.wallpaper = '';
+  document.getElementById('wallpaperPath').value = '';
+  document.getElementById('wallpaperPreview').innerHTML = '<div class="text">点击更换壁纸</div>';
+  toast('壁纸已重置为默认', 'info');
+}
+
+function selectThemeColor(el, color) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  selectedThemeColor = color;
+  state.desktop.themeColor = color;
+}
+
+function pickCustomColor(input) {
+  const color = input.value;
+  selectedThemeColor = color;
+  state.desktop.themeColor = color;
+  // add a custom swatch at the front
+  const row = document.querySelector('.color-picker-row');
+  const swatch = document.createElement('div');
+  swatch.className = 'color-swatch active';
+  swatch.style.background = color;
+  swatch.onclick = function(){ selectThemeColor(this, color); };
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  row.insertBefore(swatch, row.firstChild);
+  toast('主题色已更新', 'info');
+}
+
+// ========================================================================
+// TOGGLE / CHECK HELPERS
+// ========================================================================
+
+function toggleCheck(wrap) {
+  const cb = wrap.querySelector('input[type="checkbox"]');
+  cb.checked = !cb.checked;
+}
+
+function toggleNetwork(wrap) {
+  const cb = wrap.querySelector('input[type="checkbox"]');
+  cb.checked = !cb.checked;
+  
+  // Auto add/remove PE-Browser when network toggled
+  const browserName = 'PE-Browser';
+  const idx = state.tools.findIndex(t => t.name === browserName);
+  
+  if (cb.checked) {
+    // Add browser if not already in list
+    if (idx === -1) {
+      state.tools.unshift({
+        name: browserName, desc: '简易网页浏览器（网络必需）',
+        path: '', icon: 'fa-globe', color: '#4a9eff', builtin: true, network_dep: true
+      });
+      renderTools();
+      toast('🌐 已自动添加 PE-Browser（网络必需）', 'info');
+    }
+    // Also add basic network drivers
+    addNetworkDrivers();
+  } else {
+    // Remove browser if it was added by network check
+    if (idx !== -1 && state.tools[idx].network_dep) {
+      state.tools.splice(idx, 1);
+      renderTools();
+    }
+    // Remove network drivers
+    removeNetworkDrivers();
+  }
+}
+
+function addNetworkDrivers() {
+  const netDrivers = [
+    { name:'Realtek PCIe 以太网', type:'网络', platform:'x64', size:'~3MB' },
+    { name:'Intel PRO/1000 以太网', type:'网络', platform:'x64', size:'~2MB' },
+    { name:'Broadcom NetXtreme', type:'网络', platform:'x64', size:'~4MB' },
+  ];
+  for (const d of netDrivers) {
+    if (!state.drivers.find(x => x.name === d.name)) {
+      state.drivers.push(d);
+    }
+  }
+  renderDrivers();
+  toast('已添加常用网卡驱动', 'success');
+}
+
+function removeNetworkDrivers() {
+  const netNames = ['Realtek PCIe 以太网', 'Intel PRO/1000 以太网', 'Broadcom NetXtreme'];
+  state.drivers = state.drivers.filter(d => !netNames.includes(d.name));
+  renderDrivers();
+}
+
+// ========================================================================
+// BUILD SYSTEM — 真实构建引擎
+// ========================================================================
+
+let buildRunning = false;
+let buildPollTimer = null;
+
+function updateBuildSummary() {
+  const arch = document.getElementById('projArch').value;
+  document.getElementById('buildSummaryArch').textContent = arch;
+  document.getElementById('buildSummaryTools').textContent = state.tools.length;
+  document.getElementById('buildSummaryDrivers').textContent = state.drivers.length;
+  document.getElementById('buildSummaryRegs').textContent = state.registry.filter(r=>r.selected).length;
+  document.getElementById('buildSummaryComps').textContent = state.components.filter(c=>c.selected).length;
+  // estimate size
+  const base = 280;
+  const toolSize = state.tools.length * 15;
+  const driverSize = state.drivers.reduce((s,d) => s + parseInt(d.size.match(/\d+/)?.[0]||0), 0);
+  const total = base + toolSize + driverSize;
+  document.getElementById('buildSummarySize').textContent = `~${total}MB`;
+  document.getElementById('statusArch').textContent = arch;
+}
+
+function appendBuildLog(msg) {
+  const container = document.getElementById('buildLogContent');
+  const logCard = document.getElementById('buildProgressCard');
+  logCard.style.display = 'block';
+
+  const line = document.createElement('div');
+  line.textContent = msg;
+  container.appendChild(line);
+
+  // Scroll to bottom
+  const logContainer = document.getElementById('buildLogContainer');
+  logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function clearBuildLog() {
+  document.getElementById('buildLogContent').innerHTML = '';
+  document.getElementById('buildProgressBar').style.width = '0%';
+  document.getElementById('buildProgressPct').textContent = '0%';
+  document.getElementById('buildProgressText').textContent = '准备中...';
+}
+
+function checkEnvironment() {
+  const btn = document.getElementById('btnCheckEnv');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 检测中...';
+  document.getElementById('envStatus').textContent = '检测中...';
+  document.getElementById('envStatus').style.color = 'var(--accent)';
+
+  const logCard = document.getElementById('buildProgressCard');
+  logCard.style.display = 'block';
+  document.getElementById('buildLogContent').innerHTML = '';
+  document.getElementById('buildTitle').textContent = '环境检测';
+  document.getElementById('buildIcon').className = 'fas fa-search';
+
+  appendBuildLog('=== PE Builder 环境检测 ===');
+  appendBuildLog('');
+
+  const api = window.pywebview?.api || window.electronAPI;
+
+  if (api && api.check_prerequisites) {
+    api.check_prerequisites().then(function(result) {
+      if (typeof result === 'string') result = JSON.parse(result);
+      showEnvResult(result);
+    }).catch(function(err) {
+      appendBuildLog('❌ 调用 API 失败: ' + err);
+      fallbackEnvCheck();
+    });
+  } else {
+    // Browser mode - fallback to simple checks
+    fallbackEnvCheck();
+  }
+}
+
+function fallbackEnvCheck() {
+  appendBuildLog('⚠ 未检测到原生 API (浏览器模式)');
+  appendBuildLog('  可通过 PowerShell/DISM 手动构建');
+  appendBuildLog('  点击「生成构建脚本」生成 .ps1 文件');
+  appendBuildLog('');
+
+  // Simple DISM check via ActiveX or just show instructions
+  const envDetail = document.getElementById('envDetail');
+  envDetail.style.display = 'grid';
+  document.getElementById('envAdk').textContent = '?';
+  document.getElementById('envAdk').style.color = 'var(--warning)';
+  document.getElementById('envDism').textContent = '?';
+  document.getElementById('envDism').style.color = 'var(--warning)';
+  document.getElementById('envAdmin').textContent = '?';
+  document.getElementById('envAdmin').style.color = 'var(--warning)';
+  document.getElementById('envOscdimg').textContent = '?';
+  document.getElementById('envOscdimg').style.color = 'var(--warning)';
+
+  document.getElementById('envStatus').textContent = '浏览器模式 - 需手动构建';
+  document.getElementById('envStatus').style.color = 'var(--warning)';
+
+  appendBuildLog('环境检测完成（浏览器模式）');
+  appendBuildLog('提示: 双击 PE-Builder.exe 运行可获得完整构建功能');
+
+  btn = document.getElementById('btnCheckEnv');
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-search"></i> 检测构建环境';
+}
+
+function showEnvResult(result) {
+  const envDetail = document.getElementById('envDetail');
+  envDetail.style.display = 'grid';
+
+  const adkEl = document.getElementById('envAdk');
+  const dismEl = document.getElementById('envDism');
+  const adminEl = document.getElementById('envAdmin');
+  const oscdimgEl = document.getElementById('envOscdimg');
+
+  if (result.adk_installed) {
+    adkEl.textContent = '✓ 已安装';
+    adkEl.style.color = 'var(--success)';
+    appendBuildLog('✓ Windows ADK: 已安装');
+    appendBuildLog('  copype.cmd: ' + (result.copype_path || '未找到'));
+  } else {
+    adkEl.textContent = '✗ 未安装';
+    adkEl.style.color = 'var(--danger)';
+    appendBuildLog('✗ Windows ADK: 未安装');
+  }
+
+  if (result.dism_available) {
+    dismEl.textContent = '✓ 可用';
+    dismEl.style.color = 'var(--success)';
+    appendBuildLog('✓ DISM: 可用');
+  } else {
+    dismEl.textContent = '✗ 不可用';
+    dismEl.style.color = 'var(--danger)';
+    appendBuildLog('✗ DISM: 不可用');
+  }
+
+  if (result.is_admin) {
+    adminEl.textContent = '✓ 是';
+    adminEl.style.color = 'var(--success)';
+    appendBuildLog('✓ 管理员权限: 是');
+  } else {
+    adminEl.textContent = '✗ 否';
+    adminEl.style.color = 'var(--warning)';
+    appendBuildLog('⚠ 管理员权限: 否（建议以管理员身份运行）');
+  }
+
+  if (result.oscdimg_path) {
+    oscdimgEl.textContent = '✓ 可用';
+    oscdimgEl.style.color = 'var(--success)';
+    appendBuildLog('✓ oscdimg.exe: 可用');
+  } else {
+    oscdimgEl.textContent = '✗ 不可用';
+    oscdimgEl.style.color = 'result.can_build_without_adk ? "var(--info)" : "var(--danger)"';
+    if (result.can_build_without_adk) {
+      appendBuildLog('✓ 无需 oscdimg — 使用 Python ISO 生成器');
+    } else {
+      appendBuildLog('✗ oscdimg.exe: 不可用');
+    }
+  }
+
+  // WinRE status
+  if (result.winre_found) {
+    appendBuildLog('✓ 系统 WinRE: 已检测到 (' + result.winre_path + ')');
+    appendBuildLog('  可用作 PE 源，无需外部 ISO');
+  } else {
+    appendBuildLog('✗ 系统 WinRE: 未找到，需设置 PE 源文件');
+  }
+
+  // Build capability
+  if (result.can_build_without_adk) {
+    appendBuildLog('✓ 免 ADK 构建: 支持（使用 WinRE + Python ISO 生成器）');
+  } else if (result.adk_installed) {
+    appendBuildLog('✓ ADK 构建: 支持');
+  } else {
+    appendBuildLog('⚠ 构建条件不满足，请装 ADK 或设置源文件');
+  }
+
+  const status = document.getElementById('envStatus');
+  status.textContent = result.message || '检测完成';
+  if (result.adk_installed || result.can_build_without_adk) {
+    status.style.color = 'var(--success)';
+  } else {
+    status.style.color = 'var(--warning)';
+  }
+
+  appendBuildLog('');
+  appendBuildLog('环境检测完成');
+  if (result.adk_installed || result.can_build_without_adk) {
+    appendBuildLog('✅ 环境满足构建条件，可点击「开始构建」');
+    // Also update source status
+    if (result.winre_found) {
+      document.getElementById('sourceBadge').textContent = '系统 WinRE';
+      document.getElementById('sourceBadge').style.color = 'var(--success)';
+    }
+  } else {
+    appendBuildLog('可点击「自动安装 ADK」或上传源文件');
+  }
+
+  document.getElementById('btnCheckEnv').disabled = false;
+  document.getElementById('btnCheckEnv').innerHTML = '<i class="fas fa-search"></i> 检测构建环境';
+}
+
+function generateScript() {
+  const btn = document.querySelector('button[onclick="generateScript()"]');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+  btn.disabled = true;
+
+  const logCard = document.getElementById('buildProgressCard');
+  logCard.style.display = 'block';
+  document.getElementById('buildLogContent').innerHTML = '';
+  document.getElementById('buildTitle').textContent = '生成构建脚本';
+  document.getElementById('buildIcon').className = 'fas fa-file-code';
+
+  syncUIToState();
+
+  const config = getBuildConfig();
+  appendBuildLog('=== 生成 PE 构建脚本 ===');
+  appendBuildLog('');
+  appendBuildLog('架构: ' + config.project.arch);
+  appendBuildLog('工具数: ' + state.tools.length);
+  appendBuildLog('驱动数: ' + state.drivers.length);
+  appendBuildLog('注册表优化: ' + state.registry.filter(r=>r.selected).length);
+  appendBuildLog('');
+
+  const api = window.pywebview?.api || window.electronAPI;
+  if (api && api.generate_build_script) {
+    api.generate_build_script(JSON.stringify(config)).then(function(result) {
+      if (typeof result === 'string') result = JSON.parse(result);
+      if (result.success) {
+        appendBuildLog('✅ 构建脚本已生成');
+        appendBuildLog('   PowerShell 脚本: ' + result.script_path);
+        appendBuildLog('   BAT 启动器: ' + result.bat_path);
+        appendBuildLog('   输出目录: ' + result.output_dir);
+        appendBuildLog('   ISO 文件名: ' + result.iso_name);
+        appendBuildLog('');
+        appendBuildLog('使用说明:');
+        appendBuildLog('  1. 以管理员身份运行 build-pe.bat');
+        appendBuildLog('  2. 确保已安装 Windows ADK');
+        appendBuildLog('  3. 确保源文件路径正确');
+        appendBuildLog('');
+        appendBuildLog('若无 ADK，可手动安装后运行脚本');
+        appendBuildLog('ADK 下载: https://go.microsoft.com/fwlink/?linkid=2240443');
+      } else {
+        appendBuildLog('❌ 生成失败: ' + (result.error || '未知错误'));
+      }
+    }).catch(function(err) {
+      appendBuildLog('❌ API 调用失败: ' + err);
+    }).finally(function() {
+      btn.innerHTML = '<i class="fas fa-file-code"></i> 生成构建脚本';
+      btn.disabled = false;
+    });
+  } else {
+    // Browser mode: generate script content and offer download
+    appendBuildLog('⚠ 浏览器模式 - 将生成脚本文件供下载');
+    const scriptContent = generateScriptText(config);
+    const blob = new Blob([scriptContent], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'build-pe.ps1';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    appendBuildLog('✅ PowerShell 构建脚本已下载：build-pe.ps1');
+    appendBuildLog('');
+    appendBuildLog('使用说明:');
+    appendBuildLog('  1. 将 build-pe.ps1 放到输出目录');
+    appendBuildLog('  2. 以管理员身份运行 PowerShell');
+    appendBuildLog('  3. 执行: .\build-pe.ps1');
+    btn.innerHTML = '<i class="fas fa-file-code"></i> 生成构建脚本';
+    btn.disabled = false;
+  }
+}
+
+function runBuild() {
+  if (buildRunning) {
+    toast('构建已在运行中', 'warning');
+    return;
+  }
+
+  syncUIToState();
+
+  const config = getBuildConfig();
+  // Allow build with WinRE source (no external ISO needed)
+  const hasSource = config.source.path || state.source.from_winre;
+  if (!hasSource) {
+    toast('请先设置源文件或检测系统 WinRE！', 'error');
+    switchPanel('source');
+    return;
+  }
+
+  buildRunning = true;
+  document.getElementById('btnStartBuild').innerHTML = '<i class="fas fa-spinner fa-spin"></i> 构建中...';
+  document.getElementById('btnStartBuild').disabled = true;
+
+  const logCard = document.getElementById('buildProgressCard');
+  logCard.style.display = 'block';
+  document.getElementById('buildLogContent').innerHTML = '';
+  document.getElementById('buildTitle').textContent = '构建进度';
+  document.getElementById('buildIcon').className = 'fas fa-hammer';
+  document.getElementById('buildProgressBar').style.width = '0%';
+  document.getElementById('buildProgressPct').textContent = '0%';
+  document.getElementById('buildProgressText').textContent = '启动构建引擎...';
+
+  appendBuildLog('=== PE Builder 构建开始 ===');
+  appendBuildLog('架构: ' + config.project.arch);
+  appendBuildLog('源文件: ' + config.source.path);
+  appendBuildLog('输出: ' + document.getElementById('buildOutputPath').value + '\\' + document.getElementById('buildIsoName').value);
+  appendBuildLog('');
+
+  const api = window.pywebview?.api || window.electronAPI;
+  if (api && api.run_build) {
+    api.run_build(JSON.stringify(config)).then(function(result) {
+      if (typeof result === 'string') result = JSON.parse(result);
+      if (result.started) {
+        appendBuildLog('✅ 构建进程已启动');
+        // Start polling for progress
+        startBuildPolling();
+      } else {
+        appendBuildLog('❌ 启动构建失败: ' + (result.error || '未知错误'));
+        buildRunning = false;
+        document.getElementById('btnStartBuild').innerHTML = '<i class="fas fa-play"></i> 开始构建';
+        document.getElementById('btnStartBuild').disabled = false;
+      }
+    }).catch(function(err) {
+      appendBuildLog('❌ API 调用失败: ' + err);
+      buildRunning = false;
+      document.getElementById('btnStartBuild').innerHTML = '<i class="fas fa-play"></i> 开始构建';
+      document.getElementById('btnStartBuild').disabled = false;
+    });
+  } else {
+    // Browser mode - generate script instead
+    appendBuildLog('⚠ 浏览器模式：无法直接构建');
+    appendBuildLog('  请点击「生成构建脚本」下载 .ps1 文件');
+    appendBuildLog('  以管理员身份在 PowerShell 中运行');
+    buildRunning = false;
+    document.getElementById('btnStartBuild').innerHTML = '<i class="fas fa-play"></i> 开始构建';
+    document.getElementById('btnStartBuild').disabled = false;
+  }
+}
+
+function startBuildPolling() {
+  if (buildPollTimer) clearInterval(buildPollTimer);
+
+  buildPollTimer = setInterval(function() {
+    const api = window.pywebview?.api || window.electronAPI;
+    if (!api || !api.get_build_status) {
+      clearInterval(buildPollTimer);
+      return;
+    }
+
+    api.get_build_status().then(function(result) {
+      if (typeof result === 'string') result = JSON.parse(result);
+
+      // Update progress
+      const bar = document.getElementById('buildProgressBar');
+      const pct = document.getElementById('buildProgressPct');
+      const text = document.getElementById('buildProgressText');
+      const content = document.getElementById('buildLogContent');
+
+      bar.style.width = result.progress + '%';
+      pct.textContent = result.progress + '%';
+
+      if (result.progress === 100) {
+        text.textContent = '✅ 构建完成！';
+      } else if (result.progress > 0) {
+        text.textContent = '构建进行中 (' + result.progress + '%)...';
+      }
+
+      // Update log content (append new lines only)
+      if (result.log) {
+        content.innerHTML = '';
+        const lines = result.log.split('\n');
+        lines.forEach(function(line) {
+          if (line.trim()) {
+            const div = document.createElement('div');
+            div.textContent = line;
+            content.appendChild(div);
+          }
+        });
+        const logContainer = document.getElementById('buildLogContainer');
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+
+      // If build finished
+      if (!result.running) {
+        clearInterval(buildPollTimer);
+        buildPollTimer = null;
+        buildRunning = false;
+
+        document.getElementById('btnStartBuild').innerHTML = '<i class="fas fa-play"></i> 开始构建';
+        document.getElementById('btnStartBuild').disabled = false;
+
+        if (result.progress >= 100) {
+          text.textContent = '✅ 构建成功！';
+          document.getElementById('buildIcon').className = 'fas fa-check-circle';
+          document.getElementById('buildIcon').style.color = 'var(--success)';
+          toast('🎉 PE 构建成功！', 'success');
+        } else {
+          text.textContent = '⚠ 构建未完成';
+          document.getElementById('buildIcon').className = 'fas fa-exclamation-triangle';
+          document.getElementById('buildIcon').style.color = 'var(--warning)';
+        }
+      }
+    }).catch(function(err) {
+      // fail silently on poll errors
+    });
+  }, 1000);
+}
+
+function getBuildConfig() {
+  return {
+    project: {
+      name: document.getElementById('projName').value,
+      arch: document.getElementById('projArch').value,
+      winVer: document.getElementById('projWinVer').value,
+      lang: document.getElementById('projLang').value,
+      outFormat: document.getElementById('projOutFormat').value,
+      compress: document.getElementById('projCompress').value,
+      tempDir: document.getElementById('projTemp').value,
+      pagefile: parseInt(document.getElementById('projPagefile').value) || 1024,
+      options: {
+        network: document.getElementById('chkNetwork').checked,
+        dotnet: document.querySelector('#panel-project .check-wrap:nth-child(2) input').checked,
+        mtp: document.querySelector('#panel-project .check-wrap:nth-child(3) input').checked,
+        bitlocker: document.querySelector('#panel-project .check-wrap:nth-child(4) input').checked,
+        rdp: document.querySelector('#panel-project .check-wrap:nth-child(5) input').checked,
+        dism: document.querySelector('#panel-project .check-wrap:nth-child(6) input').checked,
+      },
+      outputDir: document.getElementById('buildOutputPath').value,
+      isoName: document.getElementById('buildIsoName').value,
+    },
+    source: { path: document.getElementById('sourcePath').value },
+    tools: state.tools,
+    drivers: state.drivers,
+    desktop: state.desktop,
+    registry: state.registry.filter(r => r.selected),
+  };
+}
+
+function generateScriptText(config) {
+  return `# PE Builder Generated Build Script
+# Architecture: ${config.project.arch}
+# Generated: ${new Date().toISOString()}
+
+Write-Host "PE Builder - Build Script" -ForegroundColor Cyan
+Write-Host "=========================="
+Write-Host ""
+Write-Host "This script builds a custom Windows PE image."
+Write-Host "Requirements: Windows ADK (Deployment Tools + Windows PE)"
+Write-Host ""
+Write-Host "Configuration Summary:"
+Write-Host "  Arch: ${config.project.arch}"
+Write-Host "  Language: ${config.project.lang}"
+Write-Host "  Output: ${config.project.outputDir}\\${config.project.isoName}"
+Write-Host "  Tools: ${config.tools.length}"
+Write-Host "  Drivers: ${config.drivers.length}"
+Write-Host "  Registry Tweaks: ${config.registry.length}"
+Write-Host ""
+Write-Host "Please run this script as Administrator."
+Write-Host ""
+Read-Host "Press Enter to start building..."
+`;
+}
+
+// ========================================================================
+// ADK 自动安装
+// ========================================================================
+
+let adkPollTimer = null;
+
+function startAdkDownload() {
+  const card = document.getElementById('adkInstallCard');
+  card.style.display = 'block';
+  document.getElementById('btnInstallAdk').disabled = true;
+  document.getElementById('btnInstallAdk').innerHTML = '<i class="fas fa-spinner fa-spin"></i> 安装中...';
+
+  document.getElementById('adkProgressBar').style.width = '1%';
+  document.getElementById('adkProgressPct').textContent = '1%';
+  document.getElementById('adkProgressText').textContent = '正在启动 ADK 安装程序...';
+  document.getElementById('adkLogContent').textContent = '[ADK] 正在启动下载安装流程...\n';
+
+  // Also show in build log
+  const logCard = document.getElementById('buildProgressCard');
+  logCard.style.display = 'block';
+  document.getElementById('buildTitle').textContent = 'ADK 安装';
+  document.getElementById('buildIcon').className = 'fas fa-download';
+  document.getElementById('buildLogContent').innerHTML = '<div>[ADK] 正在启动下载安装流程...</div>';
+
+  const api = window.pywebview?.api || window.electronAPI;
+  if (api && api.start_adk_download) {
+    api.start_adk_download().then(function(result) {
+      if (typeof result === 'string') result = JSON.parse(result);
+      if (result.started) {
+        startAdkPolling();
+      } else if (result.error) {
+        appendBuildLog('❌ ' + result.error);
+      }
+    }).catch(function(err) {
+      appendBuildLog('❌ ADK 安装启动失败: ' + err);
+      resetAdkUI();
+    });
+  } else {
+    appendBuildLog('⚠ 浏览器模式：无法自动安装 ADK');
+    appendBuildLog('请手动下载安装: https://go.microsoft.com/fwlink/?linkid=2240443');
+    document.getElementById('adkLogContent').textContent += '[ADK] 浏览器模式，请手动下载安装\n';
+    resetAdkUI();
+  }
+}
+
+function startAdkPolling() {
+  if (adkPollTimer) clearInterval(adkPollTimer);
+
+  adkPollTimer = setInterval(function() {
+    const api = window.pywebview?.api || window.electronAPI;
+    if (!api || !api.get_adk_download_status) {
+      clearInterval(adkPollTimer);
+      return;
+    }
+
+    api.get_adk_download_status().then(function(result) {
+      if (typeof result === 'string') result = JSON.parse(result);
+
+      const bar = document.getElementById('adkProgressBar');
+      const pct = document.getElementById('adkProgressPct');
+      const text = document.getElementById('adkProgressText');
+      const logEl = document.getElementById('adkLogContent');
+
+      bar.style.width = result.progress + '%';
+      pct.textContent = result.progress + '%';
+      text.textContent = result.status || '处理中...';
+
+      // Also update build log
+      const buildLog = document.getElementById('buildLogContent');
+      if (result.status && !result.status.startsWith('正在下载')) {
+        // Only add significant status updates to the main log
+      }
+
+      if (!result.downloading) {
+        clearInterval(adkPollTimer);
+        adkPollTimer = null;
+
+        if (result.progress >= 100) {
+          document.getElementById('adkProgressText').textContent = '✅ ADK 安装完成！';
+          document.getElementById('adkLogContent').textContent += '\n[ADK] ✅ 完成！可开始构建 ISO\n';
+          document.getElementById('btnInstallAdk').innerHTML = '<i class="fas fa-check"></i> ADK 已安装';
+          document.getElementById('btnInstallAdk').disabled = true;
+          toast('✅ ADK 安装完成！', 'success');
+          // Re-check environment
+          setTimeout(checkEnvironment, 1000);
+        } else {
+          resetAdkUI();
+        }
+      }
+    }).catch(function(err) {
+      // Silently handle poll errors
+    });
+  }, 1500);
+}
+
+function cancelAdkDownload() {
+  const api = window.pywebview?.api || window.electronAPI;
+  if (api && api.cancel_adk_download) {
+    api.cancel_adk_download();
+  }
+  if (adkPollTimer) {
+    clearInterval(adkPollTimer);
+    adkPollTimer = null;
+  }
+  document.getElementById('adkProgressText').textContent = '⏹ 已取消';
+  document.getElementById('adkLogContent').textContent += '\n[ADK] ⏹ 用户取消\n';
+  resetAdkUI();
+}
+
+function resetAdkUI() {
+  document.getElementById('btnInstallAdk').innerHTML = '<i class="fas fa-download"></i> 自动安装 ADK';
+  document.getElementById('btnInstallAdk').disabled = false;
+}
+
+// ========================================================================
+// PROJECT IO
+// ========================================================================
+
+function newProject() {
+  if (state.tools.length > 0 || state.drivers.length > 0) {
+    if (!confirm('确定要新建项目吗？当前修改将丢失。')) return;
+  }
+  state = getDefaultState();
+  syncStateToUI();
+  renderAll();
+  toast('已创建新项目', 'info');
+}
+
+function saveProject() {
+  // sync UI state
+  syncUIToState();
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (state.project.name || 'PE项目') + '.peproj';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('项目已保存', 'success');
+}
+
+function openProject() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.peproj';
+  input.onchange = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        const data = JSON.parse(ev.target.result);
+        state = data;
+        syncStateToUI();
+        renderAll();
+        toast('项目已加载', 'success');
+      } catch(err) {
+        toast('项目文件格式错误', 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function syncUIToState() {
+  state.project.name = document.getElementById('projName').value;
+  state.project.arch = document.getElementById('projArch').value;
+  state.project.winVer = document.getElementById('projWinVer').value;
+  state.project.lang = document.getElementById('projLang').value;
+  state.project.outFormat = document.getElementById('projOutFormat').value;
+  state.project.compress = document.getElementById('projCompress').value;
+}
+
+function syncStateToUI() {
+  document.getElementById('projName').value = state.project.name || '';
+  document.getElementById('projArch').value = state.project.arch || 'x64';
+  document.getElementById('projWinVer').value = state.project.winVer || 'win10-ltsc';
+  document.getElementById('projLang').value = state.project.lang || 'zh-CN';
+  document.getElementById('projOutFormat').value = state.project.outFormat || 'iso';
+  document.getElementById('projCompress').value = state.project.compress || 'max';
+  document.getElementById('sourcePath').value = state.source.path || '';
+  document.getElementById('wallpaperPath').value = state.desktop.wallpaper || '';
+  document.getElementById('buildOutputPath').value = 'C:\\PEBuilder\\Output';
+  document.getElementById('buildIsoName').value = 'MyPE.iso';
+  updateProjectBadge();
+}
+
+function renderAll() {
+  renderComponents();
+  renderTools();
+  renderDrivers();
+  renderRegItems();
+  updateBadges();
+  updateBuildSummary();
+}
+
+function getDefaultState() {
+  return {
+    project: {
+      name: '我的定制PE',
+      arch: 'x64',
+      winVer: 'win10-ltsc',
+      lang: 'zh-CN',
+      outFormat: 'iso',
+      compress: 'max',
+      tempDir: 'X:\\Temp',
+      pagefile: 1024,
+      options: { network: true, dotnet: false, mtp: true, bitlocker: true, rdp: false, dism: true },
+    },
+    source: { path: '', detected: null },
+    components: COMPONENTS.map(c => ({ ...c })),
+    tools: [
+    { name:'Dism++', desc:'系统优化与部署工具', path:'', icon:'fa-tools', color:'#009688', builtin:true },
+    { name:'PE-Browser', desc:'简易网页浏览器', path:'', icon:'fa-globe', color:'#4a9eff', builtin:true },
+  ],
+    desktop: {
+      wallpaper: '',
+      themeColor: DEFAULT_THEME_COLOR,
+      icons: { computer: true, recycle: true, documents: false, network: true },
+      taskbar: { show: true, autoHide: false, quickLaunch: true, clock: true },
+      font: 'microsoft-yahei',
+      fontSize: '10',
+    },
+    drivers: [],
+    registry: REGISTRY_TWEAKS.map(r => ({ ...r })),
+  };
+}
+
+// ========================================================================
+// MODAL
+// ========================================================================
+
+function openModal(title, bodyHTML, footerHTML) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHTML;
+  document.getElementById('modalFooter').innerHTML = footerHTML || '';
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+// ========================================================================
+// TOAST
+// ========================================================================
+
+function toast(msg, type) {
+  type = type || 'info';
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  const icons = { info:'fa-info-circle', success:'fa-check-circle', warning:'fa-exclamation-triangle', error:'fa-times-circle' };
+  el.className = `toast ${type}`;
+  el.innerHTML = `<i class="fas ${icons[type]||icons.info}"></i> ${msg}`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.transition = 'opacity .3s';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 300);
+  }, 3000);
+}
+
+// ========================================================================
+// CLOCK
+// ========================================================================
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('statusTime').textContent = now.toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+// ========================================================================
+// START
+// ========================================================================
+
+init();
+</script>
+</body>
+</html>
