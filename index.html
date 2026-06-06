@@ -699,16 +699,6 @@
                 <option value="arm64">ARM64</option>
               </select>
             </div>
-            <div class="form-group">
-              <label class="form-label">Windows 版本</label>
-              <select class="form-control" id="projWinVer">
-                <option value="win11">Windows 11 24H2</option>
-                <option value="win11-23h2">Windows 11 23H2</option>
-                <option value="win10">Windows 10 22H2</option>
-                <option value="win10-ltsc" selected>Windows 10 LTSC 2021</option>
-              </select>
-            </div>
-          </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">PE 语言</label>
@@ -1246,6 +1236,8 @@ let state = {
   tools: [
     { name:'Dism++', desc:'系统优化与部署工具', path:'', icon:'fa-tools', color:'#009688', builtin:true },
     { name:'PE-Browser', desc:'简易网页浏览器', path:'', icon:'fa-globe', color:'#4a9eff', builtin:true },
+    { name:'DiskGenius', desc:'磁盘分区与数据恢复', path:'', icon:'fa-hdd', color:'#f44336', builtin:true },
+    { name:'WinNTSetup', desc:'Windows 安装器', path:'', icon:'fa-windows', color:'#9c27b0', builtin:true },
   ],
   desktop: {
     wallpaper: '',
@@ -2140,7 +2132,7 @@ function getBuildConfig() {
     project: {
       name: document.getElementById('projName').value,
       arch: document.getElementById('projArch').value,
-      winVer: document.getElementById('projWinVer').value,
+      winVer: 'win10-ltsc',
       lang: document.getElementById('projLang').value,
       outFormat: document.getElementById('projOutFormat').value,
       compress: document.getElementById('projCompress').value,
@@ -2358,7 +2350,6 @@ function openProject() {
 function syncUIToState() {
   state.project.name = document.getElementById('projName').value;
   state.project.arch = document.getElementById('projArch').value;
-  state.project.winVer = document.getElementById('projWinVer').value;
   state.project.lang = document.getElementById('projLang').value;
   state.project.outFormat = document.getElementById('projOutFormat').value;
   state.project.compress = document.getElementById('projCompress').value;
@@ -2367,7 +2358,6 @@ function syncUIToState() {
 function syncStateToUI() {
   document.getElementById('projName').value = state.project.name || '';
   document.getElementById('projArch').value = state.project.arch || 'x64';
-  document.getElementById('projWinVer').value = state.project.winVer || 'win10-ltsc';
   document.getElementById('projLang').value = state.project.lang || 'zh-CN';
   document.getElementById('projOutFormat').value = state.project.outFormat || 'iso';
   document.getElementById('projCompress').value = state.project.compress || 'max';
@@ -2405,6 +2395,8 @@ function getDefaultState() {
     tools: [
     { name:'Dism++', desc:'系统优化与部署工具', path:'', icon:'fa-tools', color:'#009688', builtin:true },
     { name:'PE-Browser', desc:'简易网页浏览器', path:'', icon:'fa-globe', color:'#4a9eff', builtin:true },
+    { name:'DiskGenius', desc:'磁盘分区与数据恢复', path:'', icon:'fa-hdd', color:'#f44336', builtin:true },
+    { name:'WinNTSetup', desc:'Windows 安装器', path:'', icon:'fa-windows', color:'#9c27b0', builtin:true },
   ],
     desktop: {
       wallpaper: '',
