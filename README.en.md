@@ -28,8 +28,8 @@
 
 | Arch | Package | Size |
 |------|---------|------|
-| **x64** | [PE-Builder-v1.0.zip](https://gitee.com/eric_Coding/pe-builder/releases) | 42MB |
-| **x86** | PE-Builder-v1.0-x86.zip | 23MB |
+| **x64** | [PE-Builder-v1.0.zip](https://gitee.com/eric_Coding/pe-builder/releases/download/v1.0/PE-Builder-v1.0.zip) | 42MB |
+| **x86** | [PE-Builder-v1.0-x86.zip](https://gitee.com/eric_Coding/pe-builder/releases/download/v1.0/PE-Builder-v1.0-x86.zip) | 23MB |
 
 ---
 
