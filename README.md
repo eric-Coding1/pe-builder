@@ -164,5 +164,6 @@ Copyright © 2026 Eric
 
 ## 🔗 链接
 
+- [项目主页](https://7d5d5d8c390d44569ba99611fab964f5.app.codebuddy.work)
 - [Gitee 仓库](https://gitee.com/eric_Coding/pe-builder)
 - [GitHub 镜像](https://github.com/eric_Coding/pe-builder)

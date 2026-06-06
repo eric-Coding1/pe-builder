@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PE Builder — Windows PE 定制工具</title>
+<meta name="description" content="PE Builder 是一款开源的 Windows PE 定制工具，一键制作自己的 PE 启动盘。内置 DiskGenius、Dism++、WinNTSetup、PE-Browser，无需 ADK，ISO < 2GB。">
+<meta name="keywords" content="PE Builder, Windows PE, PE定制, 启动盘制作, PE ISO, WinRE, DiskGenius, Dism++">
+<meta name="author" content="Eric">
+<meta name="robots" content="index, follow">
+
+<!-- Open Graph -->
+<meta property="og:title" content="PE Builder — 一键制作 Windows PE 启动盘">
+<meta property="og:description" content="开源的 Windows PE 定制工具，无需 ADK，自带 WinRE 源，ISO < 2GB。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://gitee.com/eric_Coding/pe-builder">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="PE Builder">
+<meta name="twitter:description" content="Custom Windows PE Builder — Build your own bootable PE ISO in one click.">
+
+<!-- Bing / Baidu SEO -->
+<meta name="msvalidate.01" content="">
+<link rel="canonical" href="https://gitee.com/eric_Coding/pe-builder">
+
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --card: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --dim: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #d29922;
+    --accent4: #f78166;
+    --gradient: linear-gradient(135deg, #58a6ff, #3fb950);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* Hero */
+  .hero {
+    padding: 80px 24px 60px;
+    text-align: center;
+    background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 30px rgba(88,166,255,.3));
+  }
+  .hero h1 {
+    font-size: 48px;
+    font-weight: 800;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+  .hero p {
+    font-size: 20px;
+    color: var(--dim);
+    max-width: 640px;
+    margin: 0 auto 32px;
+  }
+  .hero-badges {
+    display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+  .hero-badges img { height: 24px; }
+  .hero-actions {
+    display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 32px; border-radius: 8px;
+    font-size: 16px; font-weight: 600;
+    text-decoration: none; transition: all .2s;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    box-shadow: 0 4px 16px rgba(88,166,255,.3);
+  }
+  .btn-primary:hover { background: #4a8ee0; transform: translateY(-2px); }
+  .btn-secondary {
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); background: var(--card); }
+
+  /* Container */
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  /* Section */
+  .section {
+    padding: 64px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-of-type { border-bottom: none; }
+  .section-title {
+    font-size: 28px; font-weight: 700; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-sub {
+    color: var(--dim); margin-bottom: 40px; font-size: 15px;
+  }
+
+  /* Feature Grid */
+  .feature-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .feature-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px;
+    transition: border-color .2s, transform .2s;
+  }
+  .feature-card:hover {
+    border-color: var(--accent); transform: translateY(-4px);
+  }
+  .feature-card .icon { font-size: 32px; margin-bottom: 12px; }
+  .feature-card h3 { font-size: 16px; margin-bottom: 8px; }
+  .feature-card p { font-size: 13px; color: var(--dim); line-height: 1.5; }
+
+  /* Tools */
+  .tools-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  .tool-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px; text-align: center;
+  }
+  .tool-item .icon { font-size: 28px; margin-bottom: 8px; }
+  .tool-item .name { font-size: 14px; font-weight: 600; }
+  .tool-item .desc { font-size: 12px; color: var(--dim); margin-top: 4px; }
+
+  /* Stats */
+  .stats-row {
+    display: flex; justify-content: center; gap: 48px; flex-wrap: wrap;
+    text-align: center;
+  }
+  .stat-num { font-size: 32px; font-weight: 800; color: var(--accent); }
+  .stat-label { font-size: 13px; color: var(--dim); }
+
+  /* How to */
+  .steps { counter-reset: step; }
+  .step {
+    display: flex; gap: 20px; align-items: flex-start;
+    padding: 20px 0; border-bottom: 1px solid var(--border);
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; flex-shrink: 0;
+  }
+  .step h3 { font-size: 16px; margin-bottom: 4px; }
+  .step p { font-size: 14px; color: var(--dim); }
+
+  /* CTA */
+  .cta {
+    text-align: center; padding: 64px 24px;
+    background: linear-gradient(180deg, #161b22, #0d1117);
+  }
+  .cta h2 { font-size: 32px; margin-bottom: 12px; }
+  .cta p { color: var(--dim); margin-bottom: 28px; }
+
+  /* Footer */
+  footer {
+    text-align: center; padding: 24px;
+    font-size: 13px; color: var(--dim);
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 32px; }
+    .hero p { font-size: 16px; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .tools-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-icon">🛠️</div>
+  <h1>PE Builder</h1>
+  <p>开源的 Windows PE 定制工具 — 一键制作自己的 PE 启动盘，无需任何外部依赖。</p>
+  <div class="hero-badges">
+    <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT">
+    <img src="https://img.shields.io/badge/Platform-Windows_10/11-blue" alt="Windows">
+    <img src="https://img.shields.io/badge/Arch-x64%20%7C%20x86-lightgrey" alt="Arch">
+    <img src="https://img.shields.io/badge/ISO-%3C2GB-success" alt="ISO size">
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="https://gitee.com/eric_Coding/pe-builder/releases" target="_blank">
+      📥 下载 v1.0
+    </a>
+    <a class="btn btn-secondary" href="https://gitee.com/eric_Coding/pe-builder" target="_blank">
+      📂 源码仓库
+    </a>
+    <a class="btn btn-secondary" href="https://github.com/eric_Coding/pe-builder" target="_blank">
+      🐙 GitHub 镜像
+    </a>
+  </div>
+</section>
+
+<!-- Stats -->
+<section class="section" style="padding:40px 0">
+  <div class="container">
+    <div class="stats-row">
+      <div><div class="stat-num">4</div><div class="stat-label">内置工具</div></div>
+      <div><div class="stat-num">16</div><div class="stat-label">注册表项</div></div>
+      <div><div class="stat-num">10+</div><div class="stat-label">驱动预设</div></div>
+      <div><div class="stat-num">&lt;2GB</div><div class="stat-label">ISO 大小</div></div>
+      <div><div class="stat-num">3</div><div class="stat-label">CPU 架构</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">✨ 核心特性</h2>
+    <p class="section-sub">零依赖、全功能、开箱即用的 PE 制作体验</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">🚀</div>
+        <h3>即开即用</h3>
+        <p>单文件 exe，双击运行，无需安装任何运行时或依赖库。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🪟</div>
+        <h3>自带 PE 源</h3>
+        <p>自动从系统 WinRE 提取 PE 文件，无需下载 Windows ISO，即开即用。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🚫</div>
+        <h3>免 ADK</h3>
+        <p>纯 Python ISO 生成器，彻底告别 6GB 的 Windows ADK 安装包。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🧰</div>
+        <h3>内置工具</h3>
+        <p>DiskGenius、Dism++、WinNTSetup、PE-Browser，开箱即享。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🌐</div>
+        <h3>一键联网</h3>
+        <p>勾选网络支持，自动附带浏览器和网卡驱动，PE 中上网无忧。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🎨</div>
+        <h3>深度定制</h3>
+        <p>组件选择、驱动注入、桌面壁纸、主题配色、注册表优化，全面可控。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Built-in Tools -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">📦 内置工具</h2>
+    <p class="section-sub">构建 PE 时自动打包，开箱即用</p>
+    <div class="tools-grid">
+      <div class="tool-item">
+        <div class="icon">💾</div>
+        <div class="name">DiskGenius</div>
+        <div class="desc">磁盘分区 &amp; 数据恢复</div>
+      </div>
+      <div class="tool-item">
+        <div class="icon">🔧</div>
+        <div class="name">Dism++</div>
+        <div class="desc">系统优化 &amp; 部署</div>
+      </div>
+      <div class="tool-item">
+        <div class="icon">🪟</div>
+        <div class="name">WinNTSetup</div>
+        <div class="desc">Windows 安装器</div>
+      </div>
+      <div class="tool-item">
+        <div class="icon">🌍</div>
+        <div class="name">PE-Browser</div>
+        <div class="desc">简易网页浏览器</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How to Use -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">📖 使用说明</h2>
+    <p class="section-sub">四步制作自己的 PE 启动盘</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <h3>运行 PE Builder</h3>
+          <p>双击 PE-Builder.exe，无需安装，即开即用。建议以管理员身份运行。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <h3>选择 PE 源</h3>
+          <p>源文件面板 → 点击「使用系统 WinRE」— 自动从当前 Windows 提取 PE 文件。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <h3>定制配置</h3>
+          <p>添加工具、注入驱动（存储/网卡/WiFi）、设置壁纸主题、应用注册表优化。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div>
+          <h3>构建 ISO</h3>
+          <p>切到构建面板 → 点击开始构建 → 获取 &lt; 2GB 的 PE 启动 ISO，写入 U 盘即可使用。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Driver Presets -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">🔄 驱动预设</h2>
+    <p class="section-sub">覆盖主流硬件，一键注入</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">💽</div>
+        <h3>存储驱动</h3>
+        <p>Intel VMD (RST) · NVMe · SATA AHCI · AMD RAID</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔌</div>
+        <h3>网卡驱动</h3>
+        <p>Realtek PCIe · Intel PRO/1000 · Broadcom NetXtreme</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📶</div>
+        <h3>WiFi 驱动</h3>
+        <p>Intel AX201 · Realtek 8821CE · Broadcom BCM4360</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔋</div>
+        <h3>USB 驱动</h3>
+        <p>xHCI 控制器 · Intel USB 3.0 可扩展主机</p>
+      </div>
+      <div class="feature-card" style="grid-column: span 1">
+        <div class="icon">💻</div>
+        <h3>从本机提取</h3>
+        <p>一键扫描当前系统已安装驱动，自动筛选相关类别。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tech Stack -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">⚙️ 技术架构</h2>
+    <p class="section-sub">纯 Python 构建，干净可靠</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">🎨</div>
+        <h3>前端</h3>
+        <p>HTML5 + CSS3 + JavaScript，WebView2 渲染</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🐍</div>
+        <h3>后端</h3>
+        <p>Python 3.13 + pywebview 原生窗口</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">💿</div>
+        <h3>ISO 生成</h3>
+        <p>纯 Python (pycdlib)，零外部依赖</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📦</div>
+        <h3>打包</h3>
+        <p>PyInstaller 单文件 exe，即下即用</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Requirements -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">🖥️ 系统要求</h2>
+    <p class="section-sub">轻量需求，广泛兼容</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>操作系统</h3>
+        <p>Windows 10/11 (x64 / x86)</p>
+      </div>
+      <div class="feature-card">
+        <h3>内存</h3>
+        <p>2GB+</p>
+      </div>
+      <div class="feature-card">
+        <h3>磁盘</h3>
+        <p>500MB 可用空间</p>
+      </div>
+      <div class="feature-card">
+        <h3>权限</h3>
+        <p>构建时需要管理员权限（DISM 操作）</p>
+      </div>
+      <div class="feature-card">
+        <h3>ADK</h3>
+        <p>可选 — 不装 ADK 也能正常构建</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <h2>开始制作你的 PE</h2>
+  <p>开源免费，即下即用。立即体验一键构建的畅快。</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="https://gitee.com/eric_Coding/pe-builder/releases" target="_blank">
+      📥 下载 PE Builder
+    </a>
+    <a class="btn btn-secondary" href="https://gitee.com/eric_Coding/pe-builder" target="_blank">
+      ⭐ Gitee 点星
+    </a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>
+    <a href="https://gitee.com/eric_Coding/pe-builder">Gitee</a>
+    ·
+    <a href="https://github.com/eric_Coding/pe-builder">GitHub</a>
+    ·
+    <a href="LICENSE">MIT License</a>
+  </p>
+  <p style="margin-top:8px">© 2026 Eric. Built with ❤️ and Python.</p>
+</footer>
+
+</body>
+</html>
