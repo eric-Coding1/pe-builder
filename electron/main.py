@@ -575,7 +575,7 @@ class Api:
             result['winre_path'] = winre
         
         # Find Windows boot files
-        boot_files = iso_builder.find_windows_boot_files()
+        boot_files = iso_builder.find_windows_boot_files(arch)
         if boot_files.get('bootmgr') or boot_files.get('bootmgfw'):
             result['boot_files_found'] = True
         
@@ -736,6 +736,7 @@ class Api:
             'bat_path': bat_path,
             'output_dir': output_dir,
             'iso_name': iso_name,
+            'arch': arch,
         })
     
     def run_build(self, config_json):
@@ -967,6 +968,8 @@ class Api:
         winre_path = prereq['winre_path']
         output_dir = script_result['output_dir']
         iso_name = script_result['iso_name']
+        build_arch = script_result.get('arch', 'x64')
+        self._append_log(f'目标架构: {build_arch}')
         os.makedirs(output_dir, exist_ok=True)
         
         work_dir = os.path.join(output_dir, '.pebuild')
@@ -1037,7 +1040,7 @@ class Api:
                 self._append_log(f'  boot.wim: {size_mb:.0f}MB')
             
             # Copy bootmgr (for BIOS boot)
-            boot_files = iso_builder.find_windows_boot_files()
+            boot_files = iso_builder.find_windows_boot_files(arch)
             if boot_files.get('bootmgr'):
                 shutil.copy2(boot_files['bootmgr'], os.path.join(media_dir, 'bootmgr'))
                 self._append_log('  ✓ bootmgr 已复制')
@@ -1061,7 +1064,8 @@ class Api:
             
             # Generate boot images
             try:
-                bios_img, efi_img = iso_builder.generate_boot_images(boot_files, work_dir)
+                self._append_log(f'  架构: {build_arch}')
+                bios_img, efi_img = iso_builder.generate_boot_images(boot_files, work_dir, arch=build_arch)
                 self._append_log(f'  启动映像生成完成')
             except Exception as e:
                 self._append_log(f'  ⚠ 启动映像生成: {str(e)[:60]}')

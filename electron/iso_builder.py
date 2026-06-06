@@ -1,6 +1,6 @@
 """
 ISO Builder — 纯 Python ISO 9660 + El Torito 启动镜像生成器
-不依赖任何外部工具，使用 pycdlib 库
+支持 x64 / x86 / ARM64 架构
 """
 import os
 import sys
@@ -16,15 +16,35 @@ except ImportError:
 
 logger = logging.getLogger('ISOBuilder')
 
+# Architecture-specific mappings
+EFI_BOOT_NAMES = {
+    'amd64': 'bootx64.efi',
+    'x64':   'bootx64.efi',
+    'x86':   'bootia32.efi',
+    'arm64': 'bootaa64.efi',
+}
+EFI_BOOT_83 = {
+    'amd64': b'BOOTX64 EFI',
+    'x64':   b'BOOTX64 EFI',
+    'x86':   b'BOOTIA32 EFI',
+    'arm64': b'BOOTAA64 EFI',
+}
 
-def create_efi_boot_image(bootmgfw_path, output_path):
+
+def get_efi_boot_name(arch):
+    """Get the EFI boot file name for a given architecture."""
+    return EFI_BOOT_NAMES.get(arch, 'bootx64.efi')
+
+
+def create_efi_boot_image(bootmgfw_path, output_path, arch='x64'):
     """
-    Create a FAT16 floppy image containing \efi\boot\bootx64.efi.
-    This is equivalent to efisys.bin from Windows ADK.
+    Create a FAT16 floppy image containing the EFI boot file.
+    Supports x64 (bootx64.efi), x86 (bootia32.efi), arm64 (bootaa64.efi).
     """
     if not os.path.isfile(bootmgfw_path):
         raise FileNotFoundError(f'EFI boot file not found: {bootmgfw_path}')
     
+    efi_name = EFI_BOOT_83.get(arch, b'BOOTX64 EFI')
     efi_data = open(bootmgfw_path, 'rb').read()
     # FAT16: 1.44MB floppy image = 2880 sectors * 512 bytes
     fat_size = 9  # sectors per FAT (for 1.44MB)
@@ -129,7 +149,7 @@ def create_efi_boot_image(bootmgfw_path, output_path):
     # bootx64.efi file entry (inside EFI\BOOT)
     file_cluster = boot_cluster + 1
     file_entry = bytearray(32)
-    file_entry[0:11] = b'BOOTX64 EFI'  # 8.3 name
+    file_entry[0:11] = efi_name  # 8.3 name per architecture
     file_entry[26:28] = struct.pack('<H', file_cluster)  # first cluster
     file_entry[28:32] = struct.pack('<I', len(efi_data))  # file size
     # We'll place this in BOOT's directory data later
@@ -184,8 +204,8 @@ def create_efi_boot_image(bootmgfw_path, output_path):
     boot_dir_data[33] = 0x2E
     boot_dir_data[43] = 0x10
     boot_dir_data[58:60] = struct.pack('<H', 2 + root_clusters)
-    # bootx64.efi entry
-    boot_dir_data[64:75] = b'BOOTX64 EFI'
+    # bootx64.efi entry (architecture-specific)
+    boot_dir_data[64:75] = efi_name
     boot_dir_data[90:92] = struct.pack('<H', 2 + root_clusters + 2)
     boot_dir_data[92:96] = struct.pack('<I', len(efi_data))
     
@@ -277,26 +297,32 @@ def create_bootable_iso(output_path, media_dir, label='PE_BUILDER',
         iso.close()
 
 
-def find_windows_boot_files():
-    """Find Windows boot files on the system for ISO creation."""
+def find_windows_boot_files(arch='x64'):
+    """Find Windows boot files on the system for ISO creation.
+    Supports: x64 (default), x86, arm64"""
     boot_files = {
         'bootmgr': None,
         'bootmgfw': None,
+        'arch': arch,
     }
     
-    # Common locations for BIOS boot manager
-    bootmgr_paths = [
-        os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'), 'Boot', 'PCAT', 'bootmgr'),
-        os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'), 'Boot', 'bootmgr'),
-    ]
-    for p in bootmgr_paths:
-        if os.path.isfile(p):
-            boot_files['bootmgr'] = p
-            break
+    # EFI boot file name per architecture
+    efi_name = EFI_BOOT_NAMES.get(arch, 'bootx64.efi')
+    
+    # Common locations for BIOS boot manager (x86/x64 only)
+    if arch in ('x64', 'x86', 'amd64'):
+        bootmgr_paths = [
+            os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'), 'Boot', 'PCAT', 'bootmgr'),
+            os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'), 'Boot', 'bootmgr'),
+        ]
+        for p in bootmgr_paths:
+            if os.path.isfile(p):
+                boot_files['bootmgr'] = p
+                break
     
     # Common locations for EFI boot manager
     bootmgfw_paths = [
-        os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'), 'Boot', 'EFI', 'bootmgfw.efi'),
+        os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'), 'Boot', 'EFI', efi_name),
         os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'), 'System32', 'bootmgfw.efi'),
     ]
     for p in bootmgfw_paths:
@@ -306,8 +332,10 @@ def find_windows_boot_files():
     
     # Also check EFI partition
     if not boot_files['bootmgfw']:
-        esp_paths = ['C:\\EFI\\Microsoft\\Boot\\bootmgfw.efi',
-                     'C:\\efi\\microsoft\\boot\\bootmgfw.efi']
+        esp_paths = [
+            f'C:\\EFI\\Microsoft\\Boot\\{efi_name}',
+            f'C:\\efi\\microsoft\\boot\\{efi_name}',
+        ]
         for p in esp_paths:
             if os.path.isfile(p):
                 boot_files['bootmgfw'] = p
@@ -329,9 +357,10 @@ def find_winre():
     return None
 
 
-def generate_boot_images(boot_files, work_dir):
+def generate_boot_images(boot_files, work_dir, arch='x64'):
     """
     Generate etfsboot.com and efisys.bin from Windows boot files.
+    arch: x64 (default), x86, arm64
     """
     bios_img = None
     efi_img = None
@@ -339,14 +368,14 @@ def generate_boot_images(boot_files, work_dir):
     # Generate efisys.bin from bootmgfw.efi
     if boot_files.get('bootmgfw'):
         efi_img = os.path.join(work_dir, 'efisys.bin')
-        create_efi_boot_image(boot_files['bootmgfw'], efi_img)
-        logger.info(f'efisys.bin generated from {boot_files["bootmgfw"]}')
+        create_efi_boot_image(boot_files['bootmgfw'], efi_img, arch=arch)
+        logger.info(f'efisys.bin generated ({arch})')
     
-    # For BIOS, use bootmgr as-is (etfsboot.com is essentially bootmgr)
-    if boot_files.get('bootmgr'):
+    # For BIOS, use bootmgr as-is (x86/x64 only)
+    if boot_files.get('bootmgr') and arch in ('x64', 'x86', 'amd64'):
         bios_img = os.path.join(work_dir, 'etfsboot.com')
         shutil.copy2(boot_files['bootmgr'], bios_img)
-        logger.info(f'etfsboot.com copied from {boot_files["bootmgr"]}')
+        logger.info(f'etfsboot.com copied ({arch})')
     
     return bios_img, efi_img
 
